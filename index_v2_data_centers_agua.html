@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Centers × Meio Ambiente | BI Exploratório</title>
+
+<!--
+  DASHBOARD v2 — construído a partir da estrutura real das bases fornecidas.
+  Arquivos esperados na MESMA pasta deste HTML:
+  1) datacenters.xlsx
+  2) AQUASTAT Dissemination System.xlsx
+  3) Aqueduct40_rankings_download_Y2023M07D05.xlsx
+  4) aqueduct-water-stress-country-rankings-data-set (4).xlsx
+
+  As bases de CO2 e qualidade do ar podem ser incorporadas na próxima etapa,
+  quando forem disponibilizadas.
+-->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+<style>
+:root{
+  --bg:#f4f6f8; --card:#fff; --text:#17212b; --muted:#66727e;
+  --line:#dce2e8; --accent:#1f5f8b; --accent2:#2f7d67;
+  --danger:#b33a3a; --shadow:0 3px 14px rgba(20,35,50,.07);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#142b3a;color:#fff;padding:24px 28px}
+header h1{margin:0 0 7px;font-size:25px}
+header p{margin:0;color:#d7e1e8;font-size:13px;line-height:1.5}
+nav{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);
+display:flex;gap:5px;overflow-x:auto;padding:8px 14px;box-shadow:0 2px 7px rgba(0,0,0,.04)}
+nav button{border:0;background:transparent;padding:10px 13px;border-radius:7px;cursor:pointer;
+font-weight:600;color:#53616c;white-space:nowrap;font-size:13px}
+nav button:hover{background:#eef3f6}
+nav button.active{background:#e5eef4;color:#174f72}
+main{max-width:1450px;margin:0 auto;padding:22px}
+.page{display:none}.page.active{display:block}
+.toolbar{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;
+display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px;box-shadow:var(--shadow)}
+.field{display:flex;flex-direction:column;gap:5px;min-width:180px}
+.field label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
+select,input{border:1px solid #cbd4dc;background:#fff;border-radius:6px;padding:8px 9px;font-size:13px;color:var(--text)}
+button.action{border:1px solid #b9c8d3;background:#fff;border-radius:6px;padding:8px 11px;cursor:pointer;font-weight:600}
+button.action:hover{background:#f0f4f6}
+.status{font-size:12px;color:var(--muted);margin-left:auto}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px;box-shadow:var(--shadow)}
+.kpi .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.kpi .value{font-size:25px;font-weight:700;margin-top:7px}
+.kpi .sub{font-size:11px;color:var(--muted);margin-top:5px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin-bottom:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:15px;margin:0 0 5px}
+.card p.note{font-size:11px;color:var(--muted);line-height:1.45;margin:0 0 7px}
+.chart{width:100%;height:370px}
+.chart.tall{height:480px}
+.table-wrap{overflow:auto;max-height:500px}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:8px 9px;border-bottom:1px solid #e8edf1;text-align:left;white-space:nowrap}
+th{background:#f6f8fa;position:sticky;top:0;font-size:11px;color:#55636e}
+.error{background:#fff1f1;border:1px solid #e7b9b9;color:#8e2d2d;border-radius:8px;padding:12px;font-size:12px;line-height:1.5}
+.info{background:#eef5f8;border:1px solid #c8dce6;border-radius:8px;padding:12px;font-size:12px;line-height:1.5}
+.badge{display:inline-block;padding:3px 7px;border-radius:99px;background:#eef2f4;font-size:10px;margin:2px}
+.small{font-size:11px;color:var(--muted)}
+footer{max-width:1450px;margin:0 auto;padding:0 22px 28px;color:var(--muted);font-size:11px;line-height:1.5}
+@media(max-width:950px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:600px){main{padding:12px}.kpis{grid-template-columns:1fr}.status{width:100%;margin-left:0}}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>Data Centers × Meio Ambiente</h1>
+  <p>Dashboard BI exploratório para relacionar a localização dos data centers com indicadores de água. As relações são descritivas e não estabelecem causalidade.</p>
+</header>
+
+<nav id="nav">
+  <button class="active" data-page="overview">Visão geral</button>
+  <button data-page="dc">Data centers</button>
+  <button data-page="aqua">Água industrial</button>
+  <button data-page="aqueduct4">Aqueduct 4.0</button>
+  <button data-page="aqueduct15">Aqueduct projetado</button>
+  <button data-page="relations">Relacionamentos</button>
+  <button data-page="bases">Bases</button>
+</nav>
+
+<main>
+<section id="overview" class="page active">
+  <div class="toolbar">
+    <div class="field"><label>País</label><select id="countryFilter"><option value="ALL">Todos</option></select></div>
+    <div class="field"><label>Ano AQUASTAT</label><select id="yearFilter"><option value="ALL">Todos</option></select></div>
+    <button class="action" id="resetFilters">Limpar filtros</button>
+    <div class="status" id="loadStatus">Carregando bases...</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Data centers</div><div class="value" id="kpiDC">—</div><div class="sub">registros após filtro</div></div>
+    <div class="kpi"><div class="label">Países</div><div class="value" id="kpiCountries">—</div><div class="sub">presentes nos data centers</div></div>
+    <div class="kpi"><div class="label">Eficiência hídrica industrial</div><div class="value" id="kpiEff">—</div><div class="sub">US$/m³ — valor médio no filtro</div></div>
+    <div class="kpi"><div class="label">Contribuição industrial</div><div class="value" id="kpiStress">—</div><div class="sub">% — média no filtro</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h2>Data centers por país</h2><p class="note">Contagem dos registros da base de data centers.</p><div id="overviewDC" class="chart"></div></div>
+    <div class="card"><h2>Indicadores industriais de água</h2><p class="note">Somente as duas variáveis industriais existentes na base AQUASTAT.</p><div id="overviewWater" class="chart"></div></div>
+  </div>
+</section>
+
+<section id="dc" class="page">
+  <div class="toolbar">
+    <div class="field"><label>Pesquisar data center</label><input id="dcSearch" placeholder="nome, empresa, cidade ou país"></div>
+    <button class="action" id="dcClear">Limpar</button>
+  </div>
+  <div class="grid">
+    <div class="card"><h2>Localização dos data centers</h2><p class="note">Mapa construído exclusivamente a partir de Latitude e Longitude da base de data centers.</p><div id="dcMap" class="chart tall"></div></div>
+    <div class="card"><h2>Registros</h2><p class="note">Colunas reais da base: Name, Company, City, State, Country, Address, Latitude, Longitude.</p><div id="dcTable" class="table-wrap"></div></div>
+  </div>
+</section>
+
+<section id="aqua" class="page">
+  <div class="toolbar">
+    <div class="field"><label>Variável</label><select id="aquaVariable">
+      <option value="EFF">Industrial Water Use Efficiency</option>
+      <option value="CONTR">Industrial Sector Contribution to Water Stress</option>
+    </select></div>
+    <div class="field"><label>País</label><select id="aquaCountry"><option value="ALL">Todos</option></select></div>
+  </div>
+  <div class="grid">
+    <div class="card"><h2>Evolução do indicador industrial</h2><p class="note">AQUASTAT possui dados de 2021, 2022 e 2023 para essas variáveis.</p><div id="aquaTrend" class="chart"></div></div>
+    <div class="card"><h2>Distribuição por país</h2><p class="note">Mostra o último ano disponível no recorte selecionado.</p><div id="aquaCountries" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Dados AQUASTAT filtrados</h2><div id="aquaTable" class="table-wrap"></div></div>
+</section>
+
+<section id="aqueduct4" class="page">
+  <div class="toolbar">
+    <div class="field"><label>Nível geográfico</label><select id="aq4Level"><option value="country">País</option><option value="province">Estado / província</option></select></div>
+    <div class="field"><label>Cenário</label><select id="aq4Scenario"><option value="all">Todos</option><option value="opt">Otimista</option><option value="bau">BAU</option><option value="pes">Pessimista</option></select></div>
+    <div class="field"><label>Ano futuro</label><select id="aq4Year"><option value="all">Todos</option><option>2030</option><option>2050</option><option>2080</option></select></div>
+  </div>
+  <div class="grid">
+    <div class="card"><h2>Estresse hídrico — setor industrial</h2><p class="note">Aqueduct 4.0. Para baseline, o período é 1979–2019; para futuro, 2030/2050/2080 e cenários opt/BAU/pes.</p><div id="aq4Chart" class="chart"></div></div>
+    <div class="card"><h2>Faixas de risco</h2><p class="note">A classificação categórica original do Aqueduct 4.0 é preservada.</p><div id="aq4Label" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Aqueduct 4.0 filtrado</h2><div id="aq4Table" class="table-wrap"></div></div>
+</section>
+
+<section id="aqueduct15" class="page">
+  <div class="toolbar">
+    <div class="field"><label>Ano</label><select id="aq15Year"><option value="all">Todos</option><option>2020</option><option>2030</option><option>2040</option></select></div>
+    <div class="field"><label>Cenário</label><select id="aq15Scenario"><option value="all">Todos</option><option>BAU</option><option>optimistic</option><option>pessimistic</option></select></div>
+  </div>
+  <div class="grid">
+    <div class="card"><h2>Estresse hídrico industrial por país</h2><p class="note">Base de rankings projetados do Aqueduct. O score industrial varia de 0 a 5 e é mantido separado do Aqueduct 4.0 por serem bases/metodologias diferentes.</p><div id="aq15Chart" class="chart"></div></div>
+    <div class="card"><h2>Distribuição do score industrial</h2><div id="aq15Hist" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Ranking projetado filtrado</h2><div id="aq15Table" class="table-wrap"></div></div>
+</section>
+
+<section id="relations" class="page">
+  <div class="info">
+    <b>Como as relações foram construídas:</b> a chave geográfica mais confiável entre as bases é o <b>país</b>. 
+    Data centers têm cidade/estado/endereço/coordenadas, enquanto as bases nacionais de água usam país.
+    O Aqueduct 4.0 também possui estado/província, mas a correspondência com o campo State dos data centers só é feita quando os nomes coincidem após normalização. 
+    Não é criada uma relação cidade ↔ indicador hídrico quando a base hídrica não possui cidade.
+  </div>
+  <div class="grid" style="margin-top:15px">
+    <div class="card"><h2>Data centers × eficiência hídrica industrial</h2><p class="note">Cada país é representado pelo número de data centers e pela média do indicador AQUASTAT selecionado.</p><div id="relEff" class="chart"></div></div>
+    <div class="card"><h2>Data centers × contribuição industrial ao estresse</h2><p class="note">Relação exploratória por país; não representa efeito causal da quantidade de data centers sobre o indicador.</p><div id="relStress" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Países com correspondência entre as bases</h2><div id="relTable" class="table-wrap"></div></div>
+</section>
+
+<section id="bases" class="page">
+  <div class="card">
+    <h2>Bases efetivamente usadas nesta versão</h2>
+    <p class="note">Esta seção é preenchida pelo próprio navegador após a leitura dos arquivos.</p>
+    <div id="baseStatus"></div>
+  </div>
+  <div class="card" style="margin-top:15px">
+    <h2>Estrutura real identificada nas bases fornecidas</h2>
+    <div id="schemaStatus"></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <b>Nota metodológica:</b> os indicadores de água não medem o consumo de água dos data centers. Eles descrevem condições e pressões hídricas em escalas nacional/subnacional.
+  A associação com data centers é espacial/descritiva. Diferenças entre versões do Aqueduct não devem ser interpretadas como uma série temporal única sem considerar suas metodologias e períodos de referência.
+</footer>
+
+<script>
+"use strict";
+
+const FILES = {
+  dc: "./datacenters.xlsx",
+  aquastat: "./AQUASTAT%20Dissemination%20System.xlsx",
+  aq4: "./Aqueduct40_rankings_download_Y2023M07D05.xlsx",
+  aq15: "./aqueduct-water-stress-country-rankings-data-set%20(4).xlsx"
+};
+
+const state = { dc:[], aqua:[], aq4CountryBase:[], aq4CountryFuture:[], aq4ProvinceBase:[], aq4ProvinceFuture:[], aq15:[] };
+
+function norm(v){
+  return String(v ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+    .toLowerCase().replace(/\\s+/g," ").trim();
+}
+function num(v){
+  if(v===null || v===undefined || v==="") return null;
+  if(typeof v==="number") return Number.isFinite(v)?v:null;
+  let s=String(v).trim().replace(/\\s/g,"");
+  if(s.includes(",") && s.includes(".")) s=s.replace(/\\./g,"").replace(",",".");
+  else if(s.includes(",")) s=s.replace(",",".");
+  const n=Number(s); return Number.isFinite(n)?n:null;
+}
+function esc(v){
+  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function setStatus(t, bad=false){
+  const e=document.getElementById("loadStatus"); if(e){e.textContent=t;e.style.color=bad?"#b33a3a":"#66727e";}
+}
+function plot(id,data,layout={}){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(typeof Plotly==="undefined"){el.innerHTML='<div class="error">A biblioteca de gráficos não carregou. Verifique a conexão com a internet e recarregue a página.</div>';return;}
+  try{
+    Plotly.react(el,data,Object.assign({
+      margin:{l:55,r:20,t:25,b:55},paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#fff",
+      font:{family:"Arial",size:11,color:"#17212b"},hovermode:"closest"
+    },layout),{responsive:true,displaylogo:false});
+  }catch(e){el.innerHTML='<div class="error">Erro no gráfico: '+esc(e.message)+'</div>';}
+}
+function showTable(id,rows,cols){
+  const el=document.getElementById(id); if(!el)return;
+  if(!rows.length){el.innerHTML='<div class="small">Nenhum registro encontrado para o filtro atual.</div>';return;}
+  let h="<table><thead><tr>"+cols.map(c=>"<th>"+esc(c.label||c.key)+"</th>").join("")+"</tr></thead><tbody>";
+  rows.forEach(r=>{h+="<tr>"+cols.map(c=>"<td>"+esc(r[c.key])+"</td>").join("")+"</tr>";});
+  h+="</tbody></table>"; el.innerHTML=h;
+}
+function uniqueSorted(arr){return [...new Set(arr.filter(v=>v!==null&&v!==undefined&&String(v).trim()!=="").map(String))].sort((a,b)=>a.localeCompare(b,"pt-BR"))}
+
+async function loadXlsx(url){
+  const res=await fetch(url,{cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP "+res.status+" ao abrir "+url);
+  const buf=await res.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:true});
+  return wb;
+}
+function sheetRows(wb,name){
+  const ws=wb.Sheets[name]; if(!ws)return [];
+  return XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+}
+async function loadAll(){
+  const errors=[];
+  setStatus("Carregando 4 bases...");
+  try{
+    const wb=await loadXlsx(FILES.dc);
+    state.dc=sheetRows(wb,wb.SheetNames[0]);
+  }catch(e){errors.push("Data centers: "+e.message);}
+  try{
+    const wb=await loadXlsx(FILES.aquastat);
+    state.aqua=sheetRows(wb,"Data");
+  }catch(e){errors.push("AQUASTAT: "+e.message);}
+  try{
+    const wb=await loadXlsx(FILES.aq4);
+    state.aq4CountryBase=sheetRows(wb,"country_baseline");
+    state.aq4CountryFuture=sheetRows(wb,"country_future");
+    state.aq4ProvinceBase=sheetRows(wb,"province_baseline");
+    state.aq4ProvinceFuture=sheetRows(wb,"province_future");
+  }catch(e){errors.push("Aqueduct 4.0: "+e.message);}
+  try{
+    const wb=await loadXlsx(FILES.aq15);
+    state.aq15=[];
+    wb.SheetNames.filter(s=>/^\\d{4} /.test(s)).forEach(s=>{
+      const m=s.match(/^(\\d{4}) (BAU|optimistic|pessimistic)$/i);
+      const rows=sheetRows(wb,s);
+      rows.forEach(r=>state.aq15.push({...r,Year:Number(m[1]),Scenario:m[2]}));
+    });
+  }catch(e){errors.push("Aqueduct projetado: "+e.message);}
+  updateFilters();
+  renderAll();
+  renderBases(errors);
+  if(errors.length) setStatus("Algumas bases não carregaram — veja a aba Bases.",true);
+  else setStatus("4 bases carregadas com sucesso.");
+}
+
+function dcCountry(r){return r.Country ?? r.country ?? ""}
+function dcLat(r){return num(r.Latitude)}
+function dcLon(r){return num(r["Longitude"] ?? r.Longitude)}
+function dcFiltered(){
+  const search=norm(document.getElementById("dcSearch")?.value||"");
+  return state.dc.filter(r=>{
+    if(!search)return true;
+    return [r.Name,r.Company,r.City,r.State,r.Country,r.Address].some(v=>norm(v).includes(search));
+  });
+}
+function aquaFiltered(){
+  const country=document.getElementById("countryFilter")?.value||"ALL";
+  const year=document.getElementById("yearFilter")?.value||"ALL";
+  return state.aqua.filter(r=>{
+    const industrial = String(r.Variable||"")==="SDG 6.4.1. Industrial Water Use Efficiency" ||
+                       String(r.Variable||"")==="SDG 6.4.2. Industrial Sector Contribution to Water Stress";
+    return industrial && (country==="ALL"||norm(r.Area)===norm(country)) && (year==="ALL"||String(r.Year)===year);
+  });
+}
+function updateFilters(){
+  const countries=uniqueSorted(state.dc.map(dcCountry));
+  const aquaCountries=uniqueSorted(state.aqua.filter(r=>String(r.Variable||"").includes("Industrial")).map(r=>r.Area));
+  const years=uniqueSorted(state.aqua.filter(r=>String(r.Variable||"").includes("Industrial")).map(r=>r.Year));
+  const c=document.getElementById("countryFilter"); if(c)c.innerHTML='<option value="ALL">Todos</option>'+countries.map(x=>`<option>${esc(x)}</option>`).join("");
+  const y=document.getElementById("yearFilter"); if(y)y.innerHTML='<option value="ALL">Todos</option>'+years.map(x=>`<option>${esc(x)}</option>`).join("");
+  const ac=document.getElementById("aquaCountry"); if(ac)ac.innerHTML='<option value="ALL">Todos</option>'+aquaCountries.map(x=>`<option>${esc(x)}</option>`).join("");
+}
+
+function renderOverview(){
+  const selectedCountry=document.getElementById("countryFilter")?.value||"ALL";
+  const selectedYear=document.getElementById("yearFilter")?.value||"ALL";
+  const dcs=state.dc.filter(r=>selectedCountry==="ALL"||norm(dcCountry(r))===norm(selectedCountry));
+  const wa=state.aqua.filter(r=>{
+    const industrial=String(r.Variable||"").includes("Industrial");
+    return industrial && (selectedCountry==="ALL"||norm(r.Area)===norm(selectedCountry)) && (selectedYear==="ALL"||String(r.Year)===selectedYear);
+  });
+  document.getElementById("kpiDC").textContent=dcs.length.toLocaleString("pt-BR");
+  document.getElementById("kpiCountries").textContent=uniqueSorted(dcs.map(dcCountry)).length.toLocaleString("pt-BR");
+  const eff=wa.filter(r=>String(r.Variable||"").includes("6.4.1")).map(r=>num(r.Value)).filter(v=>v!==null);
+  const stress=wa.filter(r=>String(r.Variable||"").includes("6.4.2")).map(r=>num(r.Value)).filter(v=>v!==null);
+  document.getElementById("kpiEff").textContent=eff.length?(eff.reduce((a,b)=>a+b,0)/eff.length).toLocaleString("pt-BR",{maximumFractionDigits:2}):"—";
+  document.getElementById("kpiStress").textContent=stress.length?(stress.reduce((a,b)=>a+b,0)/stress.length).toLocaleString("pt-BR",{maximumFractionDigits:2}):"—";
+
+  const count={};dcs.forEach(r=>{const c=dcCountry(r)||"Sem país";count[c]=(count[c]||0)+1});
+  const top=Object.entries(count).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  plot("overviewDC",[{x:top.map(x=>x[0]),y:top.map(x=>x[1]),type:"bar",hovertemplate:"%{x}<br>Data centers: %{y}<extra></extra>"}],{xaxis:{tickangle:-40},yaxis:{title:"Data centers"},title:{text:"",font:{size:1}}});
+
+  const years=uniqueSorted(wa.map(r=>r.Year)).sort();
+  const effY=years.map(y=>{const v=wa.filter(r=>String(r.Year)===y&&String(r.Variable||"").includes("6.4.1")).map(r=>num(r.Value)).filter(v=>v!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null});
+  const strY=years.map(y=>{const v=wa.filter(r=>String(r.Year)===y&&String(r.Variable||"").includes("6.4.2")).map(r=>num(r.Value)).filter(v=>v!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null});
+  plot("overviewWater",[
+    {x:years,y:effY,name:"Eficiência hídrica industrial (US$/m³)",mode:"lines+markers"},
+    {x:years,y:strY,name:"Contribuição industrial ao estresse (%)",mode:"lines+markers",yaxis:"y2"}
+  ],{yaxis:{title:"US$/m³"},yaxis2:{title:"%",overlaying:"y",side:"right"},legend:{orientation:"h",y:-.2}});
+}
+
+function renderDC(){
+  const rows=dcFiltered();
+  showTable("dcTable",rows.slice(0,1000),[
+    {key:"Name",label:"Name"},{key:"Company",label:"Company"},{key:"City",label:"City"},{key:"State",label:"State"},
+    {key:"Country",label:"Country"},{key:"Address",label:"Address"},{key:"Latitude",label:"Latitude"},{key:"Longitude",label:"Longitude"}
+  ]);
+  const valid=rows.filter(r=>dcLat(r)!==null&&dcLon(r)!==null);
+  plot("dcMap",[{type:"scattergeo",lat:valid.map(dcLat),lon:valid.map(dcLon),text:valid.map(r=>`${r.Name||""}<br>${r.City||""}, ${r.Country||""}`),mode:"markers",
+    marker:{size:7,opacity:.72},hovertemplate:"%{text}<extra></extra>"}],
+    {geo:{showland:true,landcolor:"#eef1f3",showocean:true,oceancolor:"#f7fafb",projection:{type:"natural earth"}},margin:{l:0,r:0,t:0,b:0}});
+}
+
+function renderAqua(){
+  const variable=document.getElementById("aquaVariable")?.value||"EFF";
+  const country=document.getElementById("aquaCountry")?.value||"ALL";
+  const variableName=variable==="EFF"?"SDG 6.4.1. Industrial Water Use Efficiency":"SDG 6.4.2. Industrial Sector Contribution to Water Stress";
+  const rows=state.aqua.filter(r=>String(r.Variable||"")===variableName&&(country==="ALL"||norm(r.Area)===norm(country)));
+  const years=uniqueSorted(rows.map(r=>r.Year)).sort();
+  if(country==="ALL"){
+    const byY=years.map(y=>{const v=rows.filter(r=>String(r.Year)===y).map(r=>num(r.Value)).filter(v=>v!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null});
+    plot("aquaTrend",[{x:years,y:byY,mode:"lines+markers",name:"Média"}],{xaxis:{title:"Ano"},yaxis:{title:variable==="EFF"?"US$/m³":"%"},legend:{orientation:"h"}});
+  }else{
+    plot("aquaTrend",[{x:years,y:years.map(y=>{const r=rows.find(r=>String(r.Year)===y);return r?num(r.Value):null}),mode:"lines+markers",name:country}],{xaxis:{title:"Ano"},yaxis:{title:variable==="EFF"?"US$/m³":"%"}});
+  }
+  const latest=Math.max(...rows.map(r=>Number(r.Year)).filter(Number.isFinite));
+  const latestRows=rows.filter(r=>Number(r.Year)===latest&&num(r.Value)!==null).sort((a,b)=>num(b.Value)-num(a.Value)).slice(0,25);
+  plot("aquaCountries",[{x:latestRows.map(r=>r.Area),y:latestRows.map(r=>num(r.Value)),type:"bar"}],
+    {xaxis:{tickangle:-45},yaxis:{title:variable==="EFF"?"US$/m³":"%"},margin:{l:55,r:15,t:15,b:120}});
+  showTable("aquaTable",rows.slice(0,1000),[
+    {key:"Area",label:"Área / país"},{key:"Year",label:"Ano"},{key:"Variable",label:"Variable"},{key:"Value",label:"Valor"},{key:"Unit",label:"Unidade"},{key:"Symbol",label:"Símbolo"}
+  ]);
+}
+
+function aq4Rows(){
+  const level=document.getElementById("aq4Level")?.value||"country";
+  const scenario=document.getElementById("aq4Scenario")?.value||"all";
+  const year=document.getElementById("aq4Year")?.value||"all";
+  let base,future;
+  if(level==="country"){base=state.aq4CountryBase;future=state.aq4CountryFuture}
+  else {base=state.aq4ProvinceBase;future=state.aq4ProvinceFuture}
+  const b=base.filter(r=>r.indicator_name==="bws"&&r.weight==="Ind");
+  const f=future.filter(r=>r.indicator_name==="bws"&&r.weight==="Ind"&&(scenario==="all"||r.scenario===scenario)&&(year==="all"||String(r.year)===year));
+  return {base:b,future:f};
+}
+function renderAQ4(){
+  const {base,future}=aq4Rows();
+  const level=document.getElementById("aq4Level").value;
+  const futureForChart=future;
+  if(futureForChart.length){
+    const groups={};
+    futureForChart.forEach(r=>{const key=`${r.year} ${r.scenario}`; if(!groups[key])groups[key]=[]; const v=num(r.score);if(v!==null)groups[key].push(v)});
+    const keys=Object.keys(groups).sort();
+    plot("aq4Chart",keys.map(k=>({x:[k],y:[groups[k].length?groups[k].reduce((a,b)=>a+b,0)/groups[k].length:null],type:"bar",name:k})),
+      {yaxis:{title:"Score médio de BWS industrial"},showlegend:false});
+  }else{
+    const labels={};base.forEach(r=>{const l=r.label||"Sem classificação";labels[l]=(labels[l]||0)+1});
+    const e=Object.entries(labels).sort((a,b)=>b[1]-a[1]);
+    plot("aq4Chart",[{x:e.map(x=>x[0]),y:e.map(x=>x[1]),type:"bar"}],{xaxis:{tickangle:-40},yaxis:{title:"Registros"},margin:{b:130}});
+  }
+  const source=future.length?future:base;
+  const labels={};source.forEach(r=>{const l=r.label||"Sem classificação";labels[l]=(labels[l]||0)+1});
+  const e=Object.entries(labels).sort((a,b)=>b[1]-a[1]);
+  plot("aq4Label",[{labels:e.map(x=>x[0]),values:e.map(x=>x[1]),type:"pie",hole:.45,textinfo:"percent"}],{showlegend:true});
+  const rows=source.slice().sort((a,b)=>(num(b.score_ranked)||999999)-(num(a.score_ranked)||999999)).slice(0,1500);
+  showTable("aq4Table",rows,level==="country"?[
+    {key:"name_0",label:"País"},{key:"year",label:"Ano"},{key:"scenario",label:"Cenário"},{key:"indicator_name",label:"Indicador"},
+    {key:"weight",label:"Setor"},{key:"score",label:"Score"},{key:"cat",label:"Categoria"},{key:"label",label:"Rótulo"}
+  ]:[
+    {key:"name_0",label:"País"},{key:"name_1",label:"Estado / província"},{key:"year",label:"Ano"},{key:"scenario",label:"Cenário"},
+    {key:"weight",label:"Setor"},{key:"score",label:"Score"},{key:"cat",label:"Categoria"},{key:"label",label:"Rótulo"}
+  ]);
+}
+
+function renderAQ15(){
+  const y=document.getElementById("aq15Year").value;
+  const s=document.getElementById("aq15Scenario").value;
+  let rows=state.aq15.filter(r=>(y==="all"||String(r.Year)===y)&&(s==="all"||norm(r.Scenario)===norm(s)));
+  const top=rows.slice().sort((a,b)=>(num(b.Industrial)||-1)-(num(a.Industrial)||-1)).slice(0,25);
+  plot("aq15Chart",[{x:top.map(r=>r.Name),y:top.map(r=>num(r.Industrial)),type:"bar"}],
+    {xaxis:{tickangle:-45},yaxis:{title:"Score industrial (0–5)"},margin:{b:120}});
+  plot("aq15Hist",[{x:rows.map(r=>num(r.Industrial)).filter(v=>v!==null),type:"histogram",nbinsx:20}],
+    {xaxis:{title:"Score industrial (0–5)"},yaxis:{title:"Países"}});
+  showTable("aq15Table",rows.slice().sort((a,b)=>(num(b.Industrial)||-1)-(num(a.Industrial)||-1)).slice(0,500),[
+    {key:"Year",label:"Ano"},{key:"Scenario",label:"Cenário"},{key:"Rank",label:"Rank"},{key:"Name",label:"País"},
+    {key:"Industrial",label:"Industrial"},{key:"All Sectors",label:"All Sectors"},{key:"Domestic",label:"Domestic"},{key:"Agricultural",label:"Agricultural"}
+  ]);
+}
+
+function countryKey(v){
+  return norm(v).replace(/\\./g,"").replace(/\\bthe\\b/g,"").replace(/\\s+/g," ").trim();
+}
+function renderRelations(){
+  const dcCounts={};
+  state.dc.forEach(r=>{const c=countryKey(dcCountry(r));if(c)dcCounts[c]=(dcCounts[c]||0)+1});
+  const aquaEff=state.aqua.filter(r=>r.Variable==="SDG 6.4.1. Industrial Water Use Efficiency");
+  const aquaStress=state.aqua.filter(r=>r.Variable==="SDG 6.4.2. Industrial Sector Contribution to Water Stress");
+  const latestEff=Math.max(...aquaEff.map(r=>Number(r.Year)).filter(Number.isFinite));
+  const latestStress=Math.max(...aquaStress.map(r=>Number(r.Year)).filter(Number.isFinite));
+  const effMap={};aquaEff.filter(r=>Number(r.Year)===latestEff).forEach(r=>{const k=countryKey(r.Area);const v=num(r.Value);if(k&&v!==null)effMap[k]=v});
+  const stressMap={};aquaStress.filter(r=>Number(r.Year)===latestStress).forEach(r=>{const k=countryKey(r.Area);const v=num(r.Value);if(k&&v!==null)stressMap[k]=v});
+  const effRows=[],stressRows=[];
+  Object.keys(dcCounts).forEach(k=>{
+    if(effMap[k]!==undefined)effRows.push({country:k,n:dcCounts[k],v:effMap[k]});
+    if(stressMap[k]!==undefined)stressRows.push({country:k,n:dcCounts[k],v:stressMap[k]});
+  });
+  plot("relEff",[{x:effRows.map(r=>r.n),y:effRows.map(r=>r.v),text:effRows.map(r=>r.country),mode:"markers",
+    marker:{size:9},hovertemplate:"%{text}<br>Data centers: %{x}<br>Eficiência: %{y:.2f} US$/m³<extra></extra>"}],
+    {xaxis:{title:"Quantidade de data centers"},yaxis:{title:`Eficiência industrial (US$/m³) — ${latestEff}`}});
+  plot("relStress",[{x:stressRows.map(r=>r.n),y:stressRows.map(r=>r.v),text:stressRows.map(r=>r.country),mode:"markers",
+    marker:{size:9},hovertemplate:"%{text}<br>Data centers: %{x}<br>Contribuição industrial: %{y:.2f}%<extra></extra>"}],
+    {xaxis:{title:"Quantidade de data centers"},yaxis:{title:`Contribuição industrial ao estresse (%) — ${latestStress}`}});
+  const union=[...new Set([...effRows.map(r=>r.country),...stressRows.map(r=>r.country)])];
+  const rel=union.map(k=>({País:k,"Data centers":dcCounts[k]||0,[`Eficiência ${latestEff}`]:effMap[k]??"—",[ `Contribuição industrial ${latestStress}`]:stressMap[k]??"—"}));
+  showTable("relTable",rel,[{key:"País",label:"País"},{key:"Data centers",label:"Data centers"},{key:`Eficiência ${latestEff}`,label:`Eficiência ${latestEff}`},{key:`Contribuição industrial ${latestStress}`,label:`Contribuição industrial ${latestStress}`}]);
+}
+
+function renderBases(errors=[]){
+  const baseStatus=document.getElementById("baseStatus");
+  const items=[
+    ["datacenters.xlsx",state.dc.length,"registros"],
+    ["AQUASTAT Dissemination System.xlsx",state.aqua.length,"registros na aba Data"],
+    ["Aqueduct40...xlsx",state.aq4CountryBase.length+state.aq4CountryFuture.length+state.aq4ProvinceBase.length+state.aq4ProvinceFuture.length,"registros nas 4 abas analíticas"],
+    ["aqueduct-water-stress...xlsx",state.aq15.length,"registros projetados"]
+  ];
+  baseStatus.innerHTML=items.map(x=>`<div class="badge">${esc(x[0])}: ${x[1].toLocaleString("pt-BR")} ${esc(x[2])}</div>`).join("");
+  if(errors.length)baseStatus.innerHTML+=`<div class="error" style="margin-top:10px"><b>Erros:</b><br>${errors.map(esc).join("<br>")}</div>`;
+  document.getElementById("schemaStatus").innerHTML=`
+  <div class="info">
+  <b>Data centers:</b> Name, Company, City, State, Country, Address, Latitude, Longitude.<br><br>
+  <b>AQUASTAT / Data:</b> m49, VariableGroup, Subgroup, Variable, Area, Year, Value, Unit, Symbol, IsAggregate.
+  As duas variáveis usadas no BI são exatamente <b>SDG 6.4.1. Industrial Water Use Efficiency</b> e <b>SDG 6.4.2. Industrial Sector Contribution to Water Stress</b>.<br><br>
+  <b>Aqueduct 4.0:</b> country_baseline, country_future, province_baseline e province_future. O filtro industrial usa <b>indicator_name = bws</b> e <b>weight = Ind</b>.<br><br>
+  <b>Aqueduct projetado:</b> abas 2020/2030/2040 × BAU/optimistic/pessimistic, com Rank, Name, All Sectors, Industrial, Domestic e Agricultural.
+  Nesta versão, somente <b>Industrial</b> é usado nos gráficos do setor hídrico.
+  </div>`;
+}
+
+function renderAll(){
+  renderOverview();renderDC();renderAqua();renderAQ4();renderAQ15();renderRelations();
+}
+
+function activate(page){
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===page));
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  if(page==="overview")renderOverview();
+  if(page==="dc")renderDC();
+  if(page==="aqua")renderAqua();
+  if(page==="aqueduct4")renderAQ4();
+  if(page==="aqueduct15")renderAQ15();
+  if(page==="relations")renderRelations();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  // Navegação é registrada ANTES do carregamento das bases.
+  document.querySelectorAll("#nav button").forEach(b=>b.addEventListener("click",()=>activate(b.dataset.page)));
+  document.getElementById("countryFilter").addEventListener("change",renderOverview);
+  document.getElementById("yearFilter").addEventListener("change",renderOverview);
+  document.getElementById("resetFilters").addEventListener("click",()=>{document.getElementById("countryFilter").value="ALL";document.getElementById("yearFilter").value="ALL";renderOverview()});
+  document.getElementById("dcSearch").addEventListener("input",renderDC);
+  document.getElementById("dcClear").addEventListener("click",()=>{document.getElementById("dcSearch").value="";renderDC()});
+  document.getElementById("aquaVariable").addEventListener("change",renderAqua);
+  document.getElementById("aquaCountry").addEventListener("change",renderAqua);
+  ["aq4Level","aq4Scenario","aq4Year"].forEach(id=>document.getElementById(id).addEventListener("change",renderAQ4));
+  ["aq15Year","aq15Scenario"].forEach(id=>document.getElementById(id).addEventListener("change",renderAQ15));
+  loadAll();
+});
+</script>
+</body>
+</html>
