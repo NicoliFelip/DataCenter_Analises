@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Centers & Impactos Ambientais — BI Interativo</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#07111f; --panel:#0d1b2d; --panel2:#10243a; --text:#e9f1f7;
+      --muted:#9db0c3; --line:#20384f; --accent:#54c7b5; --accent2:#63a4ff;
+      --danger:#ff7f7f; --warn:#f2c66d;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#06101d,#0a1728 55%,#07121f);color:var(--text)}
+    header{padding:34px 5vw 24px;border-bottom:1px solid var(--line);background:rgba(7,17,31,.92);position:sticky;top:0;z-index:20;backdrop-filter:blur(12px)}
+    h1{margin:0 0 8px;font-size:clamp(25px,4vw,42px)}
+    header p{margin:0;color:var(--muted);max-width:1000px;line-height:1.5}
+    nav{display:flex;gap:8px;flex-wrap:wrap;padding:14px 5vw;border-bottom:1px solid var(--line);background:#081523;position:sticky;top:113px;z-index:19}
+    nav button{border:1px solid var(--line);background:#0c1c2d;color:var(--text);padding:9px 14px;border-radius:9px;cursor:pointer}
+    nav button.active,nav button:hover{background:var(--accent);color:#06111d;border-color:var(--accent)}
+    main{padding:26px 5vw 60px;max-width:1600px;margin:auto}
+    .section{display:none}.section.active{display:block}
+    .toolbar,.grid,.cards{display:grid;gap:14px}
+    .toolbar{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:18px}
+    .control,.card,.chart,.note{background:rgba(13,27,45,.9);border:1px solid var(--line);border-radius:14px;padding:15px}
+    label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+    select,input{width:100%;background:#091827;color:var(--text);border:1px solid #29445e;border-radius:8px;padding:10px}
+    .cards{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:18px}
+    .metric small{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:25px;display:block;margin-top:7px}
+    .grid.two{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+    .grid.three{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+    .chart{min-height:370px}
+    .chart h3{margin:0 0 8px;font-size:15px}
+    .status{font-size:13px;color:var(--muted);margin:10px 0 0}
+    .ok{color:var(--accent)} .warn{color:var(--warn)} .err{color:var(--danger)}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{color:#bcd0e0;position:sticky;top:0;background:#0d1b2d}
+    .table-wrap{max-height:470px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#102f3a;color:#8ce5d6;font-size:11px;margin:2px}
+    .note{line-height:1.55;color:#bfd0df}
+    .note strong{color:#fff}
+    footer{padding:25px 5vw;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+    @media(max-width:700px){nav{top:0;position:relative}.grid.two{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Data Centers & Impactos Ambientais</h1>
+  <p>BI exploratório para relacionar infraestrutura de data centers com indicadores de água, qualidade do ar e emissões de CO₂. Os dados são carregados diretamente do repositório GitHub.</p>
+  <div id="status" class="status">Carregando bases...</div>
+</header>
+
+<nav>
+  <button class="active" data-tab="overview">Visão geral</button>
+  <button data-tab="dc">Data centers</button>
+  <button data-tab="water">Água</button>
+  <button data-tab="air">Ar</button>
+  <button data-tab="co2">CO₂</button>
+  <button data-tab="relations">Relacionamentos</button>
+  <button data-tab="data">Bases</button>
+</nav>
+
+<main>
+<section id="overview" class="section active">
+  <div class="toolbar">
+    <div class="control"><label>País</label><select id="countryFilter"><option value="ALL">Todos</option></select></div>
+    <div class="control"><label>Ano</label><select id="yearFilter"><option value="ALL">Todos</option></select></div>
+  </div>
+  <div class="cards" id="overviewCards"></div>
+  <div class="grid two">
+    <div class="chart"><h3>Data centers por país</h3><div id="chartDC"></div></div>
+    <div class="chart"><h3>Data centers por porte</h3><div id="chartSize"></div></div>
+    <div class="chart"><h3>CO₂ ao longo do tempo</h3><div id="chartCO2Trend"></div></div>
+    <div class="chart"><h3>Distribuição dos indicadores de ar</h3><div id="chartAirOverview"></div></div>
+  </div>
+</section>
+
+<section id="dc" class="section">
+  <div class="cards" id="dcCards"></div>
+  <div class="grid two">
+    <div class="chart"><h3>Localização dos data centers</h3><div id="mapDC"></div></div>
+    <div class="chart"><h3>Capacidade/potência identificada</h3><div id="chartPower"></div></div>
+  </div>
+  <div class="chart"><h3>Principais países por quantidade de data centers</h3><div id="chartDCCountries"></div></div>
+  <div class="note">A base de data centers é tratada como o eixo de infraestrutura. Quando existem potência, tamanho, cidade, estado e país, esses campos são usados para caracterizar a concentração e a escala da infraestrutura. Valores ambientais de outras bases não são atribuídos diretamente a um data center individual quando a fonte só permite comparação em nível de país/estado/cidade.</div>
+</section>
+
+<section id="water" class="section">
+  <div class="toolbar">
+    <div class="control"><label>Indicador hídrico</label><select id="waterVar"></select></div>
+  </div>
+  <div class="cards" id="waterCards"></div>
+  <div class="grid two">
+    <div class="chart"><h3>Indicador hídrico por país</h3><div id="chartWaterCountry"></div></div>
+    <div class="chart"><h3>Evolução/anos disponíveis</h3><div id="chartWaterTime"></div></div>
+  </div>
+  <div class="note"><strong>Critério industrial:</strong> o painel prioriza variáveis relacionadas à indústria/uso industrial. Indicadores agrícolas são mantidos fora dos gráficos industriais para evitar interpretar consumo de agricultura como impacto de data centers.</div>
+</section>
+
+<section id="air" class="section">
+  <div class="toolbar">
+    <div class="control"><label>Poluente/indicador</label><select id="pollutantFilter"></select></div>
+  </div>
+  <div class="cards" id="airCards"></div>
+  <div class="grid two">
+    <div class="chart"><h3>Qualidade do ar por país/cidade</h3><div id="chartAirCountry"></div></div>
+    <div class="chart"><h3>Distribuição dos valores</h3><div id="chartAirDist"></div></div>
+  </div>
+  <div class="note">A qualidade do ar é um indicador contextual. O painel não afirma que um data center causou determinado nível de poluição; a comparação mostra a condição ambiental observada nas localidades que podem ser relacionadas por país/cidade/ano.</div>
+</section>
+
+<section id="co2" class="section">
+  <div class="cards" id="co2Cards"></div>
+  <div class="grid two">
+    <div class="chart"><h3>Emissões anuais de CO₂</h3><div id="chartCO2Country"></div></div>
+    <div class="chart"><h3>CO₂ × número de data centers</h3><div id="chartCO2DC"></div></div>
+  </div>
+  <div class="note">Emissões nacionais de CO₂ representam o contexto climático do país, não emissões específicas dos data centers. A relação é exploratória e deve ser interpretada junto às limitações de escala e de temporalidade.</div>
+</section>
+
+<section id="relations" class="section">
+  <div class="toolbar">
+    <div class="control"><label>País para comparação</label><select id="relationCountry"><option value="ALL">Todos</option></select></div>
+  </div>
+  <div class="grid two">
+    <div class="chart"><h3>Data centers × CO₂</h3><div id="relDCco2"></div></div>
+    <div class="chart"><h3>Data centers × indicador hídrico</h3><div id="relDCwater"></div></div>
+    <div class="chart"><h3>Data centers × qualidade do ar</h3><div id="relDCair"></div></div>
+    <div class="chart"><h3>Matriz de disponibilidade dos dados</h3><div id="relCoverage"></div></div>
+  </div>
+  <div class="note"><strong>Como ler:</strong> correlação visual não implica causalidade. As bases possuem anos, escalas geográficas, metodologias e unidades diferentes. O objetivo deste painel é identificar padrões comparáveis e pontos que merecem investigação, não atribuir causalidade apenas pela associação entre séries.</div>
+</section>
+
+<section id="data" class="section">
+  <div class="cards" id="baseCards"></div>
+  <div class="note"><strong>Relacionamentos utilizados:</strong> país, cidade, estado/região e ano são chaves de ligação quando estão disponíveis. Quando a combinação exata não existe, o painel preserva a granularidade original em vez de fabricar uma correspondência.</div>
+  <div class="table-wrap"><table id="previewTable"><thead></thead><tbody></tbody></table></div>
+</section>
+</main>
+
+<footer>
+  Projeto de análise comparativa ambiental de data centers. Dados originais preservados nas bases do repositório. Dashboard desenvolvido em HTML, CSS e JavaScript, com Plotly e SheetJS para visualização e leitura das planilhas.
+</footer>
+
+<script>
+const REPO = "https://raw.githubusercontent.com/NicoliFelip/DataCenter_Analises/main/";
+const FILES = {
+  dc: "datacenters.xlsx",
+  aquastat: "AQUASTAT%20Dissemination%20System.xlsx",
+  aqueduct: "Aqueduct40_rankings_download_Y2023M07D05.xlsx",
+  co2: "annual-co2-emissions.csv",
+  waterRank: "aqueduct-water-stress-country-rankings-data-set%20(4).xlsx",
+  air: "who_ambient_air_quality_database_version_2024_%28v6.1%29.xlsx"
+};
+
+const DB = {dc:[], aquastat:[], aqueduct:[], co2:[], waterRank:[], air:[]};
+const META = {};
+let currentPreview = [];
+
+const norm = s => String(s ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const keys = obj => Object.keys(obj || {});
+const firstKey = (obj, terms) => {
+  const ks = keys(obj);
+  return ks.find(k => terms.some(t => norm(k).includes(norm(t))));
+};
+const num = v => {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number" && isFinite(v)) return v;
+  const s = String(v).replace(/\\s/g,"").replace(/\\.(?=\\d{3}(\\D|$))/g,"").replace(",",".");
+  const x = parseFloat(s.replace(/[^0-9+\\-.eE]/g,""));
+  return isFinite(x) ? x : null;
+};
+const yearOf = v => {
+  if(v===null||v===undefined||v==="") return null;
+  if(typeof v==="number"){
+    if(v>=1900 && v<=2100) return Math.round(v);
+    // Excel serial date
+    if(v>30000 && v<60000){ return new Date(Date.UTC(1899,11,30)+v*86400000).getUTCFullYear(); }
+  }
+  const m=String(v).match(/(19\\d{2}|20\\d{2}|21\\d{2})/);
+  return m ? +m[1] : null;
+};
+function findColumn(rows, terms){
+  if(!rows.length) return null;
+  const ks=keys(rows[0]);
+  return ks.find(k => terms.some(t=>norm(k).includes(norm(t)))) || null;
+}
+function countries(rows){
+  const k=findColumn(rows,["country","pais","país","country name","economy"]);
+  if(!k) return [];
+  return [...new Set(rows.map(r=>String(r[k]??"").trim()).filter(Boolean))].sort();
+}
+function years(rows){
+  const k=findColumn(rows,["year","ano","año","date"]);
+  if(!k) return [];
+  return [...new Set(rows.map(r=>yearOf(r[k])).filter(Boolean))].sort((a,b)=>a-b);
+}
+async function loadFile(key,file){
+  const res=await fetch(REPO+file);
+  if(!res.ok) throw new Error(`${key}: HTTP ${res.status}`);
+  const buf=await res.arrayBuffer();
+  if(file.endsWith(".csv")){
+    const text=new TextDecoder("utf-8").decode(buf);
+    DB[key]=parseCSV(text);
+  }else{
+    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    let all=[];
+    wb.SheetNames.forEach(sheet=>{
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheet],{defval:null});
+      rows.forEach(r=>r.__sheet=sheet);
+      all=all.concat(rows);
+    });
+    DB[key]=all;
+  }
+  META[key]={rows:DB[key].length,cols:DB[key].length?keys(DB[key][0]).length:0};
+}
+function parseCSV(text){
+  const lines=text.split(/\\r?\\n/).filter(x=>x.trim());
+  if(!lines.length)return [];
+  const parseLine=line=>{
+    const out=[];let cur="",q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){ if(q && line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+      else if(c===','&&!q){out.push(cur);cur="";} else cur+=c;
+    }
+    out.push(cur);return out;
+  };
+  const h=parseLine(lines[0]);
+  return lines.slice(1).map(line=>{
+    const vals=parseLine(line),o={};h.forEach((k,i)=>o[k]=vals[i]??"");return o;
+  });
+}
+function fillSelect(id,vals,all="Todos"){
+  const el=document.getElementById(id); if(!el)return;
+  const old=el.value; el.innerHTML=`<option value="ALL">${all}</option>`;
+  [...new Set(vals.filter(v=>v!==null&&v!==undefined&&v!==""))].sort((a,b)=>String(a).localeCompare(String(b),"pt-BR")).forEach(v=>{
+    const op=document.createElement("option");op.value=v;op.textContent=v;el.appendChild(op);
+  });
+  if([...el.options].some(o=>o.value===old))el.value=old;
+}
+function filterRows(rows, country, year){
+  const ck=findColumn(rows,["country","pais","país","country name","economy"]);
+  const yk=findColumn(rows,["year","ano","año","date"]);
+  return rows.filter(r=>{
+    const okC=country==="ALL"||!ck||String(r[ck]??"").trim()===country;
+    const okY=year==="ALL"||!yk||yearOf(r[yk])===+year;
+    return okC&&okY;
+  });
+}
+function plot(id,data,layout={}){
+  Plotly.react(id,data,Object.assign({
+    paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"rgba(0,0,0,0)",
+    font:{color:"#dce8f2"},margin:{l:55,r:20,t:25,b:50},
+    xaxis:{gridcolor:"#20384f"},yaxis:{gridcolor:"#20384f"}
+  },layout),{responsive:true,displaylogo:false});
+}
+function barFrom(rows,catKey,valKey,limit=15){
+  const m=new Map();
+  rows.forEach(r=>{const c=String(r[catKey]??"").trim();const v=num(r[valKey]);if(c)m.set(c,(m.get(c)||0)+(v??1));});
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,limit);
+}
+function detectNumeric(rows, preferred=[]){
+  if(!rows.length)return null;
+  const ks=keys(rows[0]).filter(k=>!k.startsWith("__"));
+  const score=k=>{
+    const n=rows.slice(0,500).filter(r=>num(r[k])!==null).length;
+    const p=preferred.some(t=>norm(k).includes(norm(t)))?10000:0;
+    return p+n;
+  };
+  return ks.sort((a,b)=>score(b)-score(a))[0]||null;
+}
+function dcInfo(){
+  const rows=DB.dc, c=findColumn(rows,["country","pais","país","country name"]), city=findColumn(rows,["city","cidade"]), state=findColumn(rows,["state","estado","region"]), size=findColumn(rows,["size","tamanho","tier"]), power=findColumn(rows,["mw","power","capacity","megawatt","potencia"]);
+  return {rows,c,city,state,size,power};
+}
+function waterInfo(){
+  const rows=DB.aquastat.length?DB.aquastat:DB.waterRank, c=findColumn(rows,["country","pais","país","country name"]), y=findColumn(rows,["year","ano","date"]), variable=findColumn(rows,["variable","indicator","variable name","series","item"]), value=findColumn(rows,["value","valor","numeric value","data"]);
+  return {rows,c,y,variable,value};
+}
+function airInfo(){
+  const rows=DB.air,c=findColumn(rows,["country","country name","pais","país"]),city=findColumn(rows,["city","cidade"]),poll=findColumn(rows,["pollutant","pollutant name","parameter","indicator"]),value=findColumn(rows,["value","concentration","mean","numeric value"]),y=findColumn(rows,["year","ano","date"]);
+  return {rows,c,city,poll,value,y};
+}
+function co2Info(){
+  const rows=DB.co2,c=findColumn(rows,["entity","country","pais","país"]),y=findColumn(rows,["year","ano"]),v=findColumn(rows,["co2","emissions","emission"]);
+  return {rows,c,y,v};
+}
+function setMetric(container,label,value){
+  container.insertAdjacentHTML("beforeend",`<div class="card metric"><small>${label}</small><strong>${value}</strong></div>`);
+}
+function fmt(n){return n===null||n===undefined||!isFinite(n)?"—":new Intl.NumberFormat("pt-BR",{maximumFractionDigits:1}).format(n);}
+function renderOverview(){
+  const cc=document.getElementById("countryFilter").value, yy=document.getElementById("yearFilter").value;
+  const d=filterRows(DB.dc,cc,yy), c=filterRows(DB.co2,cc,yy), a=filterRows(DB.air,cc,yy), w=filterRows(DB.aquastat.length?DB.aquastat:DB.waterRank,cc,yy);
+  const cards=document.getElementById("overviewCards");cards.innerHTML="";
+  setMetric(cards,"Data centers",d.length.toLocaleString("pt-BR"));
+  setMetric(cards,"Países com data centers",new Set(d.map(r=>r[dcInfo().c]).filter(Boolean)).size);
+  setMetric(cards,"Registros de qualidade do ar",a.length.toLocaleString("pt-BR"));
+  setMetric(cards,"Registros hídricos",w.length.toLocaleString("pt-BR"));
+  setMetric(cards,"Registros de CO₂",c.length.toLocaleString("pt-BR"));
+  const di=dcInfo();
+  if(di.c){const vals=barFrom(d,di.c,di.c,15);plot("chartDC",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:100},xaxis:{tickangle:-45}});}
+  if(di.size){const vals=barFrom(d,di.size,di.size,10);plot("chartSize",[{labels:vals.map(x=>x[0]),values:vals.map(x=>x[1]),type:"pie",hole:.45}],{showlegend:true});}
+  const ci=co2Info();
+  if(ci.c&&ci.y&&ci.v){
+    const agg=new Map();c.forEach(r=>{const y=yearOf(r[ci.y]),v=num(r[ci.v]);if(y&&v!==null)agg.set(y,(agg.get(y)||0)+v);});
+    const vals=[...agg.entries()].sort((a,b)=>a[0]-b[0]);plot("chartCO2Trend",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),mode:"lines+markers",type:"scatter"}]);
+  }
+  const ai=airInfo(); if(ai.poll&&ai.value){
+    const vals=barFrom(a,ai.poll,ai.value,10);plot("chartAirOverview",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:100},xaxis:{tickangle:-35}});
+  }
+}
+function renderDC(){
+  const d=filterRows(DB.dc,document.getElementById("countryFilter").value,document.getElementById("yearFilter").value),di=dcInfo();
+  const cards=document.getElementById("dcCards");cards.innerHTML="";
+  setMetric(cards,"Registros",d.length.toLocaleString("pt-BR"));
+  if(di.c)setMetric(cards,"Países",new Set(d.map(r=>r[di.c]).filter(Boolean)).size);
+  if(di.city)setMetric(cards,"Cidades",new Set(d.map(r=>r[di.city]).filter(Boolean)).size);
+  if(di.power){const total=d.reduce((s,r)=>s+(num(r[di.power])||0),0);setMetric(cards,"Potência registrada",fmt(total));}
+  if(di.c){const vals=barFrom(d,di.c,di.c,20);plot("chartDCCountries",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:110},xaxis:{tickangle:-50}});}
+  if(di.power&&di.c){
+    const vals=barFrom(d,di.c,di.power,15);plot("chartPower",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:100},xaxis:{tickangle:-45}});
+  }
+  if(di.city){
+    const lat=findColumn(d,["latitude","lat"]),lon=findColumn(d,["longitude","lon","lng"]);
+    if(lat&&lon){const pts=d.map(r=>({lat:num(r[lat]),lon:num(r[lon]),text:String(r[di.city]||"")})).filter(p=>p.lat!==null&&p.lon!==null);
+      plot("mapDC",[{type:"scattergeo",lat:pts.map(p=>p.lat),lon:pts.map(p=>p.lon),text:pts.map(p=>p.text),mode:"markers",marker:{size:7,opacity:.75}}],{geo:{bgcolor:"rgba(0,0,0,0)",showland:true,landcolor:"#13283b",showocean:true,oceancolor:"#081827",showcoastlines:true}});
+    } else document.getElementById("mapDC").innerHTML='<div class="status">A base não apresenta latitude/longitude utilizáveis para o mapa.</div>';
+  }
+}
+function industrialRows(rows){
+  const vi=findColumn(rows,["variable","indicator","series","item"]);
+  if(!vi)return rows;
+  return rows.filter(r=>{
+    const s=norm(r[vi]);
+    const industrial=/industrial|industry|industria|industrias|industrial water/.test(s);
+    const agriculture=/agricultur|irrigat|crop|livestock/.test(s);
+    return industrial && !agriculture;
+  });
+}
+function renderWater(){
+  const wi=waterInfo(), rows=industrialRows(wi.rows), vars=wi.variable?[...new Set(rows.map(r=>String(r[wi.variable]??"").trim()).filter(Boolean))]:[];
+  fillSelect("waterVar",vars,"Todos os industriais");
+  const selected=document.getElementById("waterVar").value, cc=document.getElementById("countryFilter").value,yy=document.getElementById("yearFilter").value;
+  let d=filterRows(rows,cc,yy);if(selected!=="ALL"&&wi.variable)d=d.filter(r=>String(r[wi.variable]).trim()===selected);
+  const cards=document.getElementById("waterCards");cards.innerHTML="";
+  setMetric(cards,"Registros industriais",d.length.toLocaleString("pt-BR"));
+  if(wi.c)setMetric(cards,"Países",new Set(d.map(r=>r[wi.c]).filter(Boolean)).size);
+  if(wi.value){const ns=d.map(r=>num(r[wi.value])).filter(v=>v!==null);setMetric(cards,"Média",fmt(ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:null));}
+  if(wi.c&&wi.value){const vals=barFrom(d,wi.c,wi.value,20);plot("chartWaterCountry",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:110},xaxis:{tickangle:-50}});}
+  if(wi.y&&wi.value){const m=new Map();d.forEach(r=>{const y=yearOf(r[wi.y]),v=num(r[wi.value]);if(y&&v!==null){const z=m.get(y)||[];z.push(v);m.set(y,z)}});const vals=[...m.entries()].sort((a,b)=>a[0]-b[0]);plot("chartWaterTime",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1].reduce((a,b)=>a+b,0)/x[1].length),mode:"lines+markers",type:"scatter"}]);}
+}
+function renderAir(){
+  const ai=airInfo(),polls=ai.poll?[...new Set(DB.air.map(r=>String(r[ai.poll]??"").trim()).filter(Boolean))]:[];
+  fillSelect("pollutantFilter",polls,"Todos");
+  const p=document.getElementById("pollutantFilter").value,cc=document.getElementById("countryFilter").value,yy=document.getElementById("yearFilter").value;
+  let d=filterRows(DB.air,cc,yy);if(p!=="ALL"&&ai.poll)d=d.filter(r=>String(r[ai.poll]).trim()===p);
+  const cards=document.getElementById("airCards");cards.innerHTML="";
+  setMetric(cards,"Registros",d.length.toLocaleString("pt-BR"));
+  if(ai.c)setMetric(cards,"Países",new Set(d.map(r=>r[ai.c]).filter(Boolean)).size);
+  if(ai.city)setMetric(cards,"Cidades",new Set(d.map(r=>r[ai.city]).filter(Boolean)).size);
+  if(ai.value){const ns=d.map(r=>num(r[ai.value])).filter(v=>v!==null);setMetric(cards,"Média",fmt(ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:null));}
+  if(ai.c&&ai.value){const vals=barFrom(d,ai.c,ai.value,20);plot("chartAirCountry",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:110},xaxis:{tickangle:-50}});}
+  if(ai.value){const ns=d.map(r=>num(r[ai.value])).filter(v=>v!==null);plot("chartAirDist",[{x:ns,type:"histogram"}]);}
+}
+function renderCO2(){
+  const ci=co2Info(),cc=document.getElementById("countryFilter").value,yy=document.getElementById("yearFilter").value,d=filterRows(DB.co2,cc,yy);
+  const cards=document.getElementById("co2Cards");cards.innerHTML="";
+  setMetric(cards,"Registros",d.length.toLocaleString("pt-BR"));
+  if(ci.c)setMetric(cards,"Países",new Set(d.map(r=>r[ci.c]).filter(Boolean)).size);
+  if(ci.v){const ns=d.map(r=>num(r[ci.v])).filter(v=>v!==null);setMetric(cards,"CO₂ total nos registros",fmt(ns.length?ns.reduce((a,b)=>a+b,0):null));}
+  if(ci.c&&ci.v){const vals=barFrom(d,ci.c,ci.v,20);plot("chartCO2Country",[{x:vals.map(x=>x[0]),y:vals.map(x=>x[1]),type:"bar"}],{margin:{b:110},xaxis:{tickangle:-50}});}
+  const di=dcInfo();
+  if(ci.c&&ci.v&&di.c){
+    const dcMap=new Map();DB.dc.forEach(r=>{const c=String(r[di.c]??"").trim();if(c)dcMap.set(c,(dcMap.get(c)||0)+1);});
+    const coMap=new Map();d.forEach(r=>{const c=String(r[ci.c]??"").trim(),v=num(r[ci.v]);if(c&&v!==null)coMap.set(c,(coMap.get(c)||0)+v);});
+    const pts=[...coMap.entries()].map(([c,v])=>({c,v,dc:dcMap.get(c)||0})).filter(p=>p.dc>0);
+    plot("chartCO2DC",[{x:pts.map(p=>p.dc),y:pts.map(p=>p.v),text:pts.map(p=>p.c),mode:"markers",type:"scatter",marker:{size:9}}],{xaxis:{title:"Número de data centers"},yaxis:{title:"CO₂ registrado"}})
+  }
+}
+function renderRelations(){
+  const cc=document.getElementById("relationCountry").value;
+  const d=cc==="ALL"?DB.dc:filterRows(DB.dc,cc,"ALL"),di=dcInfo(),ci=co2Info(),wi=waterInfo(),ai=airInfo();
+  // Country-level joins are intentionally explicit and non-causal.
+  if(di.c&&ci.c&&ci.v){
+    const dm=new Map();d.forEach(r=>{const c=String(r[di.c]??"").trim();if(c)dm.set(c,(dm.get(c)||0)+1);});
+    const cm=new Map();DB.co2.forEach(r=>{const c=String(r[ci.c]??"").trim(),v=num(r[ci.v]);if(c&&v!==null)cm.set(c,(cm.get(c)||0)+v);});
+    const pts=[...dm.entries()].filter(([c])=>cm.has(c));plot("relDCco2",[{x:pts.map(p=>p[1]),y:pts.map(p=>cm.get(p[0])),text:pts.map(p=>p[0]),mode:"markers",type:"scatter"}],{xaxis:{title:"Data centers"},yaxis:{title:"CO₂"}})
+  }
+  const wrows=industrialRows(wi.rows), wvar=wi.variable, wval=wi.value;
+  if(di.c&&wvar&&wval){
+    const dm=new Map();d.forEach(r=>{const c=String(r[di.c]??"").trim();if(c)dm.set(c,(dm.get(c)||0)+1);});
+    const wm=new Map();wrows.forEach(r=>{const c=String(r[wi.c]??"").trim(),v=num(r[wval]);if(c&&v!==null){const z=wm.get(c)||[];z.push(v);wm.set(c,z)}});
+    const pts=[...dm.entries()].filter(([c])=>wm.has(c)).map(([c,n])=>[c,n,wm.get(c).reduce((a,b)=>a+b,0)/wm.get(c).length]);
+    plot("relDCwater",[{x:pts.map(p=>p[1]),y:pts.map(p=>p[2]),text:pts.map(p=>p[0]),mode:"markers",type:"scatter"}],{xaxis:{title:"Data centers"},yaxis:{title:"Indicador hídrico industrial"}})
+  }
+  if(di.c&&ai.c&&ai.value){
+    const dm=new Map();d.forEach(r=>{const c=String(r[di.c]??"").trim();if(c)dm.set(c,(dm.get(c)||0)+1);});
+    const am=new Map();DB.air.forEach(r=>{const c=String(r[ai.c]??"").trim(),v=num(r[ai.value]);if(c&&v!==null){const z=am.get(c)||[];z.push(v);am.set(c,z)}});
+    const pts=[...dm.entries()].filter(([c])=>am.has(c)).map(([c,n])=>[c,n,am.get(c).reduce((a,b)=>a+b,0)/am.get(c).length]);
+    plot("relDCair",[{x:pts.map(p=>p[1]),y:pts.map(p=>p[2]),text:pts.map(p=>p[0]),mode:"markers",type:"scatter"}],{xaxis:{title:"Data centers"},yaxis:{title:"Valor médio do indicador de ar"}})
+  }
+  const labels=["Data centers","AQUASTAT","Aqueduct","Water Stress","CO₂","WHO Air Quality"];
+  const values=[DB.dc.length,DB.aquastat.length,DB.aqueduct.length,DB.waterRank.length,DB.co2.length,DB.air.length];
+  plot("relCoverage",[{x:labels,y:values,type:"bar"}],{margin:{b:90},xaxis:{tickangle:-30}})
+}
+function renderBaseInfo(){
+  const names={dc:"Data centers",aquastat:"AQUASTAT — água",aqueduct:"Aqueduct — rankings",co2:"Emissões anuais de CO₂",waterRank:"Aqueduct Water Stress — país",air:"WHO — qualidade do ar"};
+  const cards=document.getElementById("baseCards");cards.innerHTML="";
+  Object.keys(names).forEach(k=>{const m=META[k]||{rows:0,cols:0};cards.insertAdjacentHTML("beforeend",`<div class="card metric"><small>${names[k]}</small><strong>${m.rows.toLocaleString("pt-BR")}</strong><small>${m.cols} colunas</small></div>`);});
+  const d=DB.dc.slice(0,25);currentPreview=d;const th=document.querySelector("#previewTable thead"),tb=document.querySelector("#previewTable tbody");
+  if(!d.length){th.innerHTML="";tb.innerHTML="";return;}
+  const ks=keys(d[0]).filter(k=>!k.startsWith("__")).slice(0,12);
+  th.innerHTML="<tr>"+ks.map(k=>`<th>${k}</th>`).join("")+"</tr>";
+  tb.innerHTML=d.map(r=>"<tr>"+ks.map(k=>`<td>${r[k]??""}</td>`).join("")+"</tr>").join("");
+}
+function initialize(){
+  const allCountries=[...new Set([...countries(DB.dc),...countries(DB.aquastat),...countries(DB.co2),...countries(DB.air),...countries(DB.waterRank)])].sort();
+  const allYears=[...new Set([...years(DB.dc),...years(DB.aquastat),...years(DB.co2),...years(DB.air),...years(DB.waterRank)])].sort((a,b)=>a-b);
+  fillSelect("countryFilter",allCountries);fillSelect("relationCountry",allCountries);fillSelect("yearFilter",allYears);
+  document.getElementById("status").innerHTML=`<span class="ok">Bases carregadas:</span> ${Object.keys(META).length} fontes`;
+  renderOverview();renderDC();renderWater();renderAir();renderCO2();renderRelations();renderBaseInfo();
+}
+["countryFilter","yearFilter"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{renderOverview();renderDC();renderWater();renderAir();renderCO2();renderRelations();}));
+document.getElementById("waterVar").addEventListener("change",renderWater);
+document.getElementById("pollutantFilter").addEventListener("change",renderAir);
+document.getElementById("relationCountry").addEventListener("change",renderRelations);
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.tab).classList.add("active");
+  setTimeout(()=>window.dispatchEvent(new Event("resize")),50);
+}));
+
+(async()=>{
+  try{
+    await Promise.all(Object.entries(FILES).map(([k,f])=>loadFile(k,f)));
+    initialize();
+  }catch(e){
+    document.getElementById("status").innerHTML=`<span class="err">Erro ao carregar as bases:</span> ${e.message}. Verifique se o repositório está público e se os nomes dos arquivos permanecem iguais.`;
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
