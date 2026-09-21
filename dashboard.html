@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 BI Dashboard — Meio Ambiente & Data Centers</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet">
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" rel="stylesheet">
+<style>
+body{font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+#loading-overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem}
+#map-container{height:calc(100vh - 220px);min-height:500px}
+.metric-card{text-align:center;padding:1.25rem;border-radius:.5rem}
+.metric-card .value{font-size:2rem;font-weight:700}
+.metric-card .label{font-size:.78rem;opacity:.7;text-transform:uppercase;letter-spacing:.05em}
+.table-responsive{max-height:420px;overflow-y:auto}
+.table th{position:sticky;top:0;background:var(--bs-body-bg);z-index:1;cursor:pointer}
+#chat-messages{height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;padding:1rem}
+.chat-message{max-width:85%;padding:.75rem 1rem;border-radius:1rem;font-size:.9rem}
+.chat-message.user{background:var(--bs-primary);align-self:flex-end;border-radius:1rem 1rem .25rem 1rem}
+.chat-message.ai{background:var(--bs-secondary-bg);align-self:flex-start;border-radius:1rem 1rem 1rem .25rem}
+.chat-message.thinking{opacity:.6;font-style:italic}
+.ai-insight{background:linear-gradient(135deg,rgba(13,110,253,.1),rgba(13,202,240,.1));border:1px solid rgba(13,110,253,.3);border-radius:.5rem;padding:1rem 1.25rem}
+.ai-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--bs-info);margin-bottom:.5rem}
+.data-status{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.data-status.ok{background:#2ea043}
+.data-status.loading{background:#f0883e;animation:pulse 1s infinite}
+.data-status.error{background:#f85149}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.nav-tabs .nav-link{font-size:.875rem;padding:.5rem .875rem}
+canvas{max-width:100%}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div class="text-center">
+    <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem"></div>
+    <h4 class="text-light">🌍 Carregando Dashboard</h4>
+  </div>
+  <div style="width:300px">
+    <div class="progress" style="height:6px">
+      <div id="load-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
+    </div>
+  </div>
+  <small class="text-muted" id="load-msg">Iniciando...</small>
+</div>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom sticky-top">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold">🌍 BI Dashboard <small class="text-muted fw-normal" style="font-size:.7rem">Meio Ambiente &amp; Data Centers</small></span>
+    <div class="d-flex align-items-center gap-3 ms-auto">
+      <div class="d-none d-md-flex align-items-center gap-3">
+        <small class="d-flex align-items-center gap-1"><span class="data-status loading" id="s-dc"></span>Data Centers</small>
+        <small class="d-flex align-items-center gap-1"><span class="data-status loading" id="s-air"></span>Ar</small>
+        <small class="d-flex align-items-center gap-1"><span class="data-status loading" id="s-water"></span>Água</small>
+        <small class="d-flex align-items-center gap-1"><span class="data-status loading" id="s-co2"></span>CO₂</small>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="offcanvas" data-bs-target="#cfgPanel"><i class="bi bi-gear"></i> Config</button>
+      <button class="btn btn-sm btn-outline-primary" onclick="loadAllData()"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+  </div>
+</nav>
+
+<!-- CONFIG PANEL -->
+<div class="offcanvas offcanvas-end" id="cfgPanel" style="width:380px">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title"><i class="bi bi-gear me-2"></i>Configurações</h5>
+    <button class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="mb-4">
+      <label class="form-label fw-semibold">🤖 Gemini API Key</label>
+      <div class="input-group">
+        <input type="password" class="form-control form-control-sm" id="api-key" placeholder="AIzaSy...">
+        <button class="btn btn-sm btn-primary" onclick="saveApiKey()">Salvar</button>
+      </div>
+      <div class="form-text">Necessária para análises de IA. <a href="https://aistudio.google.com/app/apikey" target="_blank">Obter chave gratuita →</a></div>
+      <div id="api-key-status" class="mt-1"></div>
+    </div>
+    <hr>
+    <div class="mb-4">
+      <label class="form-label fw-semibold">🌫️ Link direto do CSV de CO₂</label>
+      <input type="text" class="form-control form-control-sm" id="co2-link" placeholder="https://drive.google.com/file/d/...">
+      <div class="form-text">O link fornecido era de pasta. Abra a pasta, clique com botão direito no CSV e copie o link de compartilhamento.</div>
+      <button class="btn btn-sm btn-outline-success mt-2" onclick="saveCo2Link()">Salvar e Carregar</button>
+    </div>
+    <hr>
+    <div>
+      <label class="form-label fw-semibold">📂 Status dos Dados</label>
+      <div class="d-flex flex-column gap-2">
+        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary"><span class="small">🏢 Data Centers</span><span class="data-status loading" id="cs-dc"></span></div>
+        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary"><span class="small">💨 Qualidade do Ar (WHO)</span><span class="data-status loading" id="cs-air"></span></div>
+        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary"><span class="small">💧 Aqueduct 4.0</span><span class="data-status loading" id="cs-water"></span></div>
+        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary"><span class="small">💧 Water Stress Rankings</span><span class="data-status loading" id="cs-wrank"></span></div>
+        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary"><span class="small">🌫️ CO₂ Emissions</span><span class="data-status loading" id="cs-co2"></span></div>
+      </div>
+      <button class="btn btn-sm btn-outline-primary w-100 mt-3" onclick="loadAllData()"><i class="bi bi-arrow-clockwise me-1"></i>Recarregar Tudo</button>
+    </div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="d-flex flex-wrap align-items-center gap-2 px-3 py-2 bg-body-tertiary border-bottom">
+  <small class="text-muted fw-semibold"><i class="bi bi-funnel me-1"></i>Filtros:</small>
+  <select class="form-select form-select-sm" style="width:auto" id="f-region"><option value="">Todas as Regiões</option></select>
+  <select class="form-select form-select-sm" style="width:auto" id="f-country"><option value="">Todos os Países</option></select>
+  <select class="form-select form-select-sm" style="width:auto" id="f-scenario">
+    <option value="BAU">BAU (Tendência atual)</option>
+    <option value="optimistic">Otimista</option>
+    <option value="pessimistic">Pessimista</option>
+  </select>
+  <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()"><i class="bi bi-x-circle me-1"></i>Limpar</button>
+  <div class="ms-auto d-none d-md-flex gap-2">
+    <span class="badge bg-warning text-dark" id="fc-dc">0 DCs</span>
+    <span class="badge bg-info text-dark" id="fc-air">0 cidades</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="container-fluid px-3 py-3">
+  <ul class="nav nav-tabs mb-3" id="mainTabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-map"><i class="bi bi-globe me-1"></i>Mapa</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-air"><i class="bi bi-wind me-1"></i>Qualidade do Ar</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-water"><i class="bi bi-droplet me-1"></i>Stress Hídrico</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-dc"><i class="bi bi-building me-1"></i>Data Centers</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-co2"><i class="bi bi-cloud me-1"></i>CO₂</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-corr"><i class="bi bi-graph-up-arrow me-1"></i>Correlações</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rank"><i class="bi bi-trophy me-1"></i>Rankings</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-chat"><i class="bi bi-robot me-1"></i>Chat IA</a></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- TAB MAPA -->
+    <div class="tab-pane fade show active" id="tab-map">
+      <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <span><i class="bi bi-layers me-2"></i>Camadas</span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-warning active" id="bl-dc" onclick="toggleLayer('dc')">🏢 Data Centers</button>
+            <button class="btn btn-outline-info active" id="bl-air" onclick="toggleLayer('air')">💨 Qualidade do Ar</button>
+            <button class="btn btn-outline-primary active" id="bl-water" onclick="toggleLayer('water')">💧 Stress Hídrico</button>
+          </div>
+        </div>
+        <div class="card-body p-0"><div id="map-container"></div></div>
+      </div>
+    </div>
+
+    <!-- TAB QUALIDADE DO AR -->
+    <div class="tab-pane fade" id="tab-air">
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3"><div class="card metric-card border-info"><div class="value text-info" id="air-pm25">--</div><div class="label">PM2.5 Médio (μg/m³)</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-warning"><div class="value text-warning" id="air-pm10">--</div><div class="label">PM10 Médio (μg/m³)</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-danger"><div class="value text-danger" id="air-worst">--</div><div class="label">País mais Poluído (PM2.5)</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-success"><div class="value text-success" id="air-cities">--</div><div class="label">Cidades Monitoradas</div></div></div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-8">
+          <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span>🏭 Top 25 Países por Poluente</span>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-info active" onclick="setAirMetric('pm25',this)">PM2.5</button>
+                <button class="btn btn-outline-warning" onclick="setAirMetric('pm10',this)">PM10</button>
+                <button class="btn btn-outline-danger" onclick="setAirMetric('no2',this)">NO₂</button>
+              </div>
+            </div>
+            <div class="card-body"><canvas id="c-air-top"></canvas></div>
+          </div>
+        </div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-header">📊 PM2.5 vs NO₂</div><div class="card-body"><canvas id="c-air-scatter"></canvas></div></div></div>
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between flex-wrap gap-2">
+              <span>📋 Dados Completos</span>
+              <input type="text" class="form-control form-control-sm" style="width:200px" placeholder="Buscar..." id="air-q" oninput="filterTable('air-q','tbody-air')">
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead><tr>
+                    <th onclick="sortTbl('tbody-air',0)">País ↕</th><th onclick="sortTbl('tbody-air',1)">Cidade ↕</th>
+                    <th onclick="sortTbl('tbody-air',2)">Ano ↕</th><th onclick="sortTbl('tbody-air',3)">PM2.5 ↕</th>
+                    <th onclick="sortTbl('tbody-air',4)">PM10 ↕</th><th onclick="sortTbl('tbody-air',5)">NO₂ ↕</th>
+                    <th>Região WHO</th>
+                  </tr></thead>
+                  <tbody id="tbody-air"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB STRESS HÍDRICO -->
+    <div class="tab-pane fade" id="tab-water">
+      <ul class="nav nav-pills mb-3 small">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#w-base">📍 Baseline</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#w-future">📈 Projeções 2020→2040</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#w-sector">🏭 Por Setor</a></li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="w-base">
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="card metric-card border-danger"><div class="value text-danger" id="w-extreme">--</div><div class="label">Risco Extremo</div></div></div>
+            <div class="col-6 col-md-3"><div class="card metric-card border-warning"><div class="value text-warning" id="w-high">--</div><div class="label">Alto Risco</div></div></div>
+            <div class="col-6 col-md-3"><div class="card metric-card border-info"><div class="value text-info" id="w-avg">--</div><div class="label">Score Médio</div></div></div>
+            <div class="col-6 col-md-3"><div class="card metric-card border-primary"><div class="value text-primary" id="w-total">--</div><div class="label">Países Avaliados</div></div></div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-7"><div class="card h-100"><div class="card-header">🌊 Score de Stress Hídrico — Top 30</div><div class="card-body"><canvas id="c-w-base"></canvas></div></div></div>
+            <div class="col-md-5"><div class="card h-100"><div class="card-header">🍩 Categorias de Risco</div><div class="card-body"><canvas id="c-w-cat"></canvas></div></div></div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="w-future">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">País</label>
+              <select class="form-select form-select-sm" id="w-fut-country" onchange="drawWaterFuture()"><option value="">-- Selecione --</option></select>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-8"><div class="card"><div class="card-header">📈 Evolução 2020 → 2030 → 2040 (por cenário)</div><div class="card-body"><canvas id="c-w-future"></canvas></div></div></div>
+            <div class="col-md-4"><div class="card"><div class="card-header">🔻 Top 10 Maior Deterioração (BAU)</div><div class="card-body"><canvas id="c-w-worst"></canvas></div></div></div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="w-sector">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Ano/Cenário</label>
+            <select class="form-select form-select-sm" style="width:auto" id="sector-sheet" onchange="drawSector()">
+              <option value="2020 BAU">2020 — BAU</option><option value="2030 BAU">2030 — BAU</option>
+              <option value="2040 BAU">2040 — BAU</option><option value="2020 optimistic">2020 — Otimista</option>
+              <option value="2030 optimistc">2030 — Otimista</option><option value="2040 optimistic">2040 — Otimista</option>
+              <option value="2020 pessimistic">2020 — Pessimista</option><option value="2030 pessimistc">2030 — Pessimista</option>
+              <option value="2040 pessimistic">2040 — Pessimista</option>
+            </select>
+          </div>
+          <div class="card"><div class="card-header">🏭 Stress por Setor — Top 20</div><div class="card-body"><canvas id="c-w-sector"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB DATA CENTERS -->
+    <div class="tab-pane fade" id="tab-dc">
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3"><div class="card metric-card border-warning"><div class="value text-warning" id="dc-total">--</div><div class="label">Total Data Centers</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-info"><div class="value text-info" id="dc-countries">--</div><div class="label">Países</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-primary"><div class="value text-primary" id="dc-companies">--</div><div class="label">Empresas</div></div></div>
+        <div class="col-6 col-md-3"><div class="card metric-card border-success"><div class="value text-success" id="dc-top">--</div><div class="label">País com Mais DCs</div></div></div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-7"><div class="card h-100"><div class="card-header">🏢 DCs por País — Top 20</div><div class="card-body"><canvas id="c-dc-country"></canvas></div></div></div>
+        <div class="col-md-5"><div class="card h-100"><div class="card-header">🏭 Por Empresa — Top 10</div><div class="card-body"><canvas id="c-dc-company"></canvas></div></div></div>
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between flex-wrap gap-2">
+              <span>📋 Todos os Data Centers</span>
+              <input type="text" class="form-control form-control-sm" style="width:200px" placeholder="Buscar..." id="dc-q" oninput="filterTable('dc-q','tbody-dc')">
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead><tr>
+                    <th onclick="sortTbl('tbody-dc',0)">Nome ↕</th><th onclick="sortTbl('tbody-dc',1)">Empresa ↕</th>
+                    <th onclick="sortTbl('tbody-dc',2)">Cidade ↕</th><th onclick="sortTbl('tbody-dc',3)">Estado ↕</th>
+                    <th onclick="sortTbl('tbody-dc',4)">País ↕</th>
+                  </tr></thead>
+                  <tbody id="tbody-dc"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CO2 -->
+    <div class="tab-pane fade" id="tab-co2">
+      <div id="co2-alert" class="alert alert-warning d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div>CSV de CO₂ não carregado. Cole o link direto do arquivo nas <a href="#" data-bs-toggle="offcanvas" data-bs-target="#cfgPanel">configurações</a>.</div>
+      </div>
+      <div id="co2-content" style="display:none">
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3"><div class="card metric-card"><div class="value" id="co2-year">--</div><div class="label">Ano mais recente</div></div></div>
+          <div class="col-6 col-md-3"><div class="card metric-card border-danger"><div class="value text-danger" id="co2-top-em">--</div><div class="label">Maior Emissor</div></div></div>
+          <div class="col-6 col-md-3"><div class="card metric-card border-warning"><div class="value text-warning" id="co2-global">--</div><div class="label">Emissão Global (Gt)</div></div></div>
+          <div class="col-6 col-md-3"><div class="card metric-card border-info"><div class="value text-info" id="co2-entities">--</div><div class="label">Entidades</div></div></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between flex-wrap gap-2">
+                <span>📈 Histórico de Emissões</span>
+                <select class="form-select form-select-sm" style="width:auto" id="co2-sel" onchange="drawCo2Line()"><option value="World">Mundial</option></select>
+              </div>
+              <div class="card-body"><canvas id="c-co2-line"></canvas></div>
+            </div>
+          </div>
+          <div class="col-md-4"><div class="card"><div class="card-header">🏆 Top 15 Emissores</div><div class="card-body"><canvas id="c-co2-top"></canvas></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CORRELAÇÕES -->
+    <div class="tab-pane fade" id="tab-corr">
+      <div class="ai-insight mb-3">
+        <div class="ai-label">🤖 Análise de IA</div>
+        <div id="ai-corr-text" class="text-muted small">Configure a Gemini API Key e clique em "Gerar Análise" para obter insights automáticos.</div>
+        <button class="btn btn-sm btn-outline-info mt-2" onclick="genCorrInsight()"><i class="bi bi-lightning me-1"></i>Gerar Análise</button>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6"><div class="card"><div class="card-header">🏢 Data Centers × 💧 Stress Hídrico</div><div class="card-body"><canvas id="c-corr-dw"></canvas></div><div class="card-footer text-muted small" id="note-dw"></div></div></div>
+        <div class="col-md-6"><div class="card"><div class="card-header">🏢 Data Centers × 💨 PM2.5</div><div class="card-body"><canvas id="c-corr-da"></canvas></div><div class="card-footer text-muted small" id="note-da"></div></div></div>
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">⚠️ Países com DCs em Zonas de Alto Stress Hídrico</div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>País</th><th>DCs</th><th>Stress Hídrico</th><th>Categoria</th><th>PM2.5</th><th>Risco Composto</th></tr></thead>
+                  <tbody id="tbody-risk"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB RANKINGS -->
+    <div class="tab-pane fade" id="tab-rank">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>🏆 Ranking — Índice de Risco Ambiental Composto</span>
+              <button class="btn btn-sm btn-outline-success" onclick="exportCsv()"><i class="bi bi-download me-1"></i>CSV</button>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive" style="max-height:520px">
+                <table class="table table-sm table-hover mb-0">
+                  <thead><tr><th>#</th><th>País</th><th>DCs</th><th>Stress Hídrico</th><th>PM2.5</th><th>Índice</th><th>Nível</th></tr></thead>
+                  <tbody id="tbody-rank"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-header">⚡ Comparar 2 Países</div>
+            <div class="card-body">
+              <select class="form-select form-select-sm mb-2" id="cmp-a"><option value="">País A</option></select>
+              <select class="form-select form-select-sm mb-2" id="cmp-b"><option value="">País B</option></select>
+              <button class="btn btn-sm btn-primary w-100 mb-3" onclick="drawRadar()">Comparar</button>
+              <canvas id="c-radar"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CHAT IA -->
+    <div class="tab-pane fade" id="tab-chat">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+              <i class="bi bi-robot fs-5 text-primary"></i>
+              <span>Chat com IA — Explore os dados</span>
+              <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="clearChat()"><i class="bi bi-trash"></i></button>
+            </div>
+            <div class="card-body p-0">
+              <div id="chat-messages">
+                <div class="chat-message ai"><strong>🤖 Assistente BI</strong><br>Olá! Posso responder perguntas sobre qualidade do ar, stress hídrico, data centers e CO₂. O que deseja saber?</div>
+              </div>
+            </div>
+            <div class="card-footer">
+              <div class="mb-2 d-flex flex-wrap gap-1">
+                <small class="text-muted w-100 mb-1">Sugestões:</small>
+                <button class="btn btn-sm btn-outline-secondary" onclick="useSug(this)">Quais países têm mais DCs em regiões de alto stress hídrico?</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="useSug(this)">Compare qualidade do ar na Ásia vs Europa</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="useSug(this)">Top 10 países com maior risco ambiental combinado?</button>
+              </div>
+              <div class="input-group">
+                <input type="text" class="form-control" id="chat-in" placeholder="Faça uma pergunta..." onkeydown="if(event.key==='Enter')sendMsg()">
+                <button class="btn btn-primary" onclick="sendMsg()" id="chat-btn"><i class="bi bi-send"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:11000">
+  <div id="mainToast" class="toast"><div class="toast-header"><strong class="me-auto" id="toast-t">Aviso</strong><button class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body" id="toast-b"></div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+const S={
+  apiKey:localStorage.getItem('bi_apikey')||'',
+  co2Link:localStorage.getItem('bi_co2link')||'',
+  data:{dc:[],air:[],co2:[],aqBase:[],aqFuture:[],ws:{}},
+  charts:{},map:null,geo:null,
+  layers:{dc:true,air:true,water:true},
+  mapObjs:{},airMetric:'pm25',ranked:[],sortDir:{}
+};
+const IDS={dc:'14pHWzKhdg2S0BwunWBeAA2PYbUcnoL43',air:'1evXlImsBGy5YwbA41lfEXEt6Q3NMvAsn',aq40:'1QnZKpU270ijhuA8AL2w7JFkfsV9e7yQK',ws:'1jCIKhPFGRwO2lgaMlElHSDbFVfN4Buf6'};
+const XL=id=>`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`;
+const COLORS=['#0d6efd','#dc3545','#198754','#ffc107','#0dcaf0','#6610f2','#fd7e14','#20c997','#d63384','#6f42c1','#e83e8c','#adb5bd'];
+
+window.addEventListener('DOMContentLoaded',async()=>{
+  if(S.apiKey){document.getElementById('api-key').value=S.apiKey;setApiSt(true);}
+  if(S.co2Link)document.getElementById('co2-link').value=S.co2Link;
+  initMap();await loadAllData();
+});
+
+async function loadAllData(){
+  showLoad(true);prog(0,'Iniciando...');
+  await Promise.allSettled([loadDC(),loadAir(),loadAQ40(),loadWS(),loadCO2(),loadGeo()]);
+  prog(100,'Concluído!');await sleep(400);showLoad(false);renderAll();
+}
+
+async function loadDC(){
+  try{prog(10,'Carregando Data Centers...');
+    const rows=await fetchSheet(XL(IDS.dc),0);
+    S.data.dc=rows.map(r=>({...r,lat:pf(r.Latitude)||0,lon:pf(r.Longitude)||0,iso3:n2iso(r.Country||'')})).filter(r=>r.lat&&r.lon);
+    setSt('dc','ok');prog(22,`Data Centers: ${S.data.dc.length}`);
+  }catch(e){setSt('dc','error');toast(`DC: ${e.message}`,'danger');}
+}
+
+async function loadAir(){
+  try{prog(25,'Carregando Qualidade do Ar...');
+    const rows=await fetchSheet(XL(IDS.air),'Update 2024 (V6.1)');
+    S.data.air=rows.map(r=>({...r,pm25:pf(r.pm25_concentration),pm10:pf(r.pm10_concentration),no2:pf(r.no2_concentration),lat:pf(r.latitude),lon:pf(r.longitude)}));
+    setSt('air','ok');prog(42,`Ar: ${S.data.air.length}`);
+  }catch(e){setSt('air','error');toast(`Ar: ${e.message}`,'danger');}
+}
+
+async function loadAQ40(){
+  try{prog(45,'Carregando Aqueduct 4.0...');
+    const wb=await fetchWb(XL(IDS.aq40));
+    const sn=n=>wb.SheetNames.find(s=>s.toLowerCase()===n.toLowerCase())||null;
+    if(sn('country_baseline'))S.data.aqBase=XLSX.utils.sheet_to_json(wb.Sheets[sn('country_baseline')]);
+    if(sn('country_future'))S.data.aqFuture=XLSX.utils.sheet_to_json(wb.Sheets[sn('country_future')]);
+    setSt('water','ok');prog(60,`Aqueduct: ${S.data.aqBase.length} países`);
+  }catch(e){setSt('water','error');toast(`Aqueduct: ${e.message}`,'danger');}
+}
+
+async function loadWS(){
+  try{prog(62,'Carregando Water Stress Rankings...');
+    const wb=await fetchWb(XL(IDS.ws));
+    ['2020 BAU','2020 optimistic','2020 pessimistic','2030 BAU','2030 optimistc','2030 pessimistc','2040 BAU','2040 optimistic','2040 pessimistic'].forEach(n=>{
+      const found=wb.SheetNames.find(s=>s.toLowerCase().replace(/\s/g,'')===n.toLowerCase().replace(/\s/g,''));
+      if(found)S.data.ws[n]=XLSX.utils.sheet_to_json(wb.Sheets[found]);
+    });
+    setSt('wrank','ok');prog(78,'WS Rankings carregados');
+  }catch(e){setSt('wrank','error');toast(`WS: ${e.message}`,'danger');}
+}
+
+async function loadCO2(){
+  if(!S.co2Link){setSt('co2','error');return;}
+  try{prog(80,'Carregando CO2...');
+    const fid=exId(S.co2Link);
+    const url=fid?`https://drive.google.com/uc?export=download&id=${fid}`:S.co2Link;
+    const r=await fetch(url);const txt=await r.text();
+    const res=Papa.parse(txt,{header:true,skipEmptyLines:true});
+    S.data.co2=res.data.map(r=>({...r,Year:parseInt(r.Year)||0,val:pf(r['Annual CO\u2082 emissions'])||0}));
+    setSt('co2','ok');prog(88,`CO2: ${S.data.co2.length}`);
+  }catch(e){setSt('co2','error');toast(`CO2: ${e.message}`,'danger');}
+}
+
+async function loadGeo(){
+  try{prog(90,'Carregando GeoJSON...');
+    const r=await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+    S.geo=await r.json();prog(97,'GeoJSON OK');
+  }catch(e){toast('GeoJSON falhou — choropleth indisponível','warning');}
+}
+
+function renderAll(){
+  fillFilters();
+  renderAirCards();renderAirTop();renderAirScatter();renderAirTable();
+  renderWaterCards();renderWaterBase();renderWaterCat();fillWaterCtries();drawWorst();
+  renderDcCards();renderDcCountry();renderDcCompany();renderDcTable();
+  if(S.data.co2.length)renderCo2();
+  renderMapLayers();renderCorr();buildRank();renderRank();fillCmpSels();updateCounts();
+}
+
+// MAP
+function initMap(){
+  S.map=L.map('map-container').setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:18}).addTo(S.map);
+}
+
+function renderMapLayers(){
+  if(!S.map)return;
+  Object.values(S.mapObjs).forEach(l=>{try{S.map.removeLayer(l)}catch(e){}});S.mapObjs={};
+  if(S.layers.dc&&S.data.dc.length){
+    const cl=L.markerClusterGroup();
+    S.data.dc.forEach(d=>{
+      const m=L.marker([d.lat,d.lon],{icon:L.divIcon({html:'🏢',iconSize:[20,20],className:''})});
+      m.bindPopup(`<b>${d.Name||'DC'}</b><br>🏭 ${d.Company||''}<br>📍 ${d.City||''}, ${d.Country||''}`);
+      cl.addLayer(m);
+    });
+    S.map.addLayer(cl);S.mapObjs.dc=cl;
+  }
+  if(!S.geo)return;
+  if(S.layers.air&&S.data.air.length){
+    const byIso={};const g=grpBy(S.data.air.filter(r=>r.pm25!=null),'iso3');
+    Object.entries(g).forEach(([iso,rows])=>{byIso[iso]=avg(rows.map(r=>r.pm25));});
+    const l=choropleth(byIso,[0,10,25,35,50,75],['#2dc653','#a8c090','#f0c040','#f08030','#e04020','#c00000'],'PM2.5');
+    l.addTo(S.map);S.mapObjs.air=l;
+  }
+  if(S.layers.water&&S.data.aqBase.length){
+    const byIso={};S.data.aqBase.filter(r=>r.indicator_name==='bws').forEach(r=>{byIso[r.gid_0]=pf(r.score)||0;});
+    const l=choropleth(byIso,[0,1,2,3,4],['#cce5ff','#88bbff','#ffc107','#fd7e14','#dc3545'],'Stress Hídrico');
+    l.addTo(S.map);S.mapObjs.water=l;
+  }
+}
+
+function choropleth(data,thres,colors,label){
+  const getC=v=>{if(v==null)return'#333';for(let i=thres.length-1;i>=0;i--)if(v>=thres[i])return colors[i]||colors[colors.length-1];return colors[0];};
+  return L.geoJSON(S.geo,{
+    style:f=>({fillColor:getC(data[f.properties.ISO_A3||f.properties.iso_a3]),weight:.5,opacity:.7,color:'#666',fillOpacity:.6}),
+    onEachFeature:(f,l)=>{const iso=f.properties.ISO_A3||f.properties.iso_a3;const v=data[iso];l.bindTooltip(`${f.properties.ADMIN||iso}: ${v!=null?v.toFixed(2):'N/D'} (${label})`);}
+  });
+}
+
+function toggleLayer(k){S.layers[k]=!S.layers[k];document.getElementById(`bl-${k}`)?.classList.toggle('active',S.layers[k]);renderMapLayers();}
+
+// AIR
+function renderAirCards(){
+  const d=airFilt();const p25=d.filter(r=>r.pm25!=null);const p10=d.filter(r=>r.pm10!=null);
+  el('air-pm25',p25.length?avg(p25.map(r=>r.pm25)).toFixed(1):'--');
+  el('air-pm10',p10.length?avg(p10.map(r=>r.pm10)).toFixed(1):'--');
+  el('air-cities',d.length.toLocaleString());
+  const byC=grpBy(p25,'country_name');let worst='--',wv=0;
+  Object.entries(byC).forEach(([c,rows])=>{const a=avg(rows.map(r=>r.pm25));if(a>wv){wv=a;worst=c;}});
+  el('air-worst',worst);
+}
+
+function renderAirTop(){
+  const d=airFilt();const m=S.airMetric;
+  const byC={};d.forEach(r=>{const v=r[m];if(v==null)return;if(!byC[r.country_name])byC[r.country_name]=[];byC[r.country_name].push(v);});
+  const top=Object.entries(byC).map(([c,vs])=>({c,v:avg(vs)})).sort((a,b)=>b.v-a.v).slice(0,25);
+  drawBar('c-air-top',top.map(r=>r.c),top.map(r=>r.v.toFixed(2)),m.toUpperCase()+' μg/m³',top.map(r=>r.v>75?'#dc3545':r.v>50?'#fd7e14':r.v>25?'#ffc107':'#198754'),true);
+}
+
+function renderAirScatter(){
+  const d=airFilt().filter(r=>r.pm25!=null&&r.no2!=null);
+  const byC=grpBy(d,'country_name');
+  const pts=Object.entries(byC).map(([c,rows])=>({x:avg(rows.map(r=>r.pm25)),y:avg(rows.map(r=>r.no2)),label:c}));
+  drawScatter('c-air-scatter',pts,'PM2.5 μg/m³','NO₂ μg/m³','rgba(13,202,240,.5)');
+}
+
+function renderAirTable(){
+  document.getElementById('tbody-air').innerHTML=airFilt().slice(0,600).map(r=>`<tr>
+    <td>${r.country_name||''}</td><td>${r.city||''}</td><td>${r.year||''}</td>
+    <td>${r.pm25!=null?r.pm25.toFixed(1):'--'}</td><td>${r.pm10!=null?r.pm10.toFixed(1):'--'}</td>
+    <td>${r.no2!=null?r.no2.toFixed(1):'--'}</td><td>${r.who_region||''}</td>
+  </tr>`).join('');
+}
+
+function setAirMetric(m,btn){
+  S.airMetric=m;
+  document.querySelectorAll('#tab-air .btn-group .btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderAirTop();
+}
+
+// WATER
+function renderWaterCards(){
+  const bws=S.data.aqBase.filter(r=>r.indicator_name==='bws');
+  const src=bws.length?bws:(S.data.ws['2020 BAU']||[]).map(r=>({score:pf(r['All Sectors'])||0}));
+  el('w-extreme',src.filter(r=>(pf(r.score)||0)>=4).length);
+  el('w-high',src.filter(r=>{const v=pf(r.score)||0;return v>=3&&v<4;}).length);
+  el('w-avg',src.length?avg(src.map(r=>pf(r.score)||0)).toFixed(2):'--');
+  el('w-total',src.length);
+}
+
+function renderWaterBase(){
+  let data=S.data.aqBase.filter(r=>r.indicator_name==='bws');
+  if(!data.length)data=(S.data.ws['2020 BAU']||[]).map(r=>({name_0:r.Name,score:pf(r['All Sectors'])||0}));
+  const top=data.sort((a,b)=>(pf(b.score)||0)-(pf(a.score)||0)).slice(0,30);
+  drawBar('c-w-base',top.map(r=>r.name_0),top.map(r=>pf(r.score)||0),'Score',top.map(r=>{const v=pf(r.score)||0;return v>=4?'#dc3545':v>=3?'#fd7e14':v>=2?'#ffc107':'#198754';}),true);
+}
+
+function renderWaterCat(){
+  const bws=S.data.aqBase.filter(r=>r.indicator_name==='bws');const cats={};
+  if(bws.length){bws.forEach(r=>{const k=r.label||r.cat||'N/D';cats[k]=(cats[k]||0)+1;});}
+  else{(S.data.ws['2020 BAU']||[]).forEach(r=>{const v=pf(r['All Sectors'])||0;const k=v>=4?'Extremo (≥4)':v>=3?'Alto (3-4)':v>=2?'Médio-Alto (2-3)':'Baixo (<2)';cats[k]=(cats[k]||0)+1;});}
+  drawDoughnut('c-w-cat',Object.keys(cats),Object.values(cats));
+}
+
+function fillWaterCtries(){
+  const names=new Set();
+  Object.values(S.data.ws).forEach(rows=>rows.forEach(r=>{if(r.Name)names.add(r.Name);}));
+  S.data.aqFuture.forEach(r=>{if(r.name_0)names.add(r.name_0);});
+  const sel=document.getElementById('w-fut-country');
+  [...names].sort().forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;sel.appendChild(o);});
+}
+
+function drawWaterFuture(){
+  const country=document.getElementById('w-fut-country').value;if(!country)return;
+  const map={'2020 BAU':{y:'2020',s:'BAU'},'2020 optimistic':{y:'2020',s:'Otimista'},'2020 pessimistic':{y:'2020',s:'Pessimista'},
+             '2030 BAU':{y:'2030',s:'BAU'},'2030 optimistc':{y:'2030',s:'Otimista'},'2030 pessimistc':{y:'2030',s:'Pessimista'},
+             '2040 BAU':{y:'2040',s:'BAU'},'2040 optimistic':{y:'2040',s:'Otimista'},'2040 pessimistic':{y:'2040',s:'Pessimista'}};
+  const series={BAU:{},Otimista:{},Pessimista:{}};
+  Object.entries(map).forEach(([sh,{y,s}])=>{
+    const rows=S.data.ws[sh]||[];const row=rows.find(r=>r.Name===country);
+    if(row)series[s][y]=pf(row['All Sectors'])||0;
+  });
+  const years=['2020','2030','2040'];const colors={BAU:'#ffc107',Otimista:'#198754',Pessimista:'#dc3545'};
+  const datasets=Object.entries(series).map(([s,vals])=>({label:s,data:years.map(y=>vals[y]??null),borderColor:colors[s],backgroundColor:colors[s]+'22',tension:.3,fill:false}));
+  const ctx=document.getElementById('c-w-future').getContext('2d');
+  if(S.charts['c-w-future'])S.charts['c-w-future'].destroy();
+  S.charts['c-w-future']=new Chart(ctx,{type:'line',data:{labels:years,datasets},options:{responsive:true,scales:{y:{min:0,max:5,title:{display:true,text:'Score'}}}}});
+}
+
+function drawWorst(){
+  const b40=S.data.ws['2040 BAU']||[];const b20=S.data.ws['2020 BAU']||[];
+  if(!b40.length||!b20.length)return;
+  const diffs=b40.map(r=>({name:r.Name,diff:(pf(r['All Sectors'])||0)-(pf((b20.find(b=>b.Name===r.Name)||{})['All Sectors'])||0)})).sort((a,b)=>b.diff-a.diff).slice(0,10);
+  drawBar('c-w-worst',diffs.map(r=>r.name),diffs.map(r=>r.diff.toFixed(2)),'Δ Score (2020→2040)','#dc3545',true);
+}
+
+function drawSector(){
+  const sh=document.getElementById('sector-sheet').value;const data=(S.data.ws[sh]||[]).slice(0,20);
+  const ctx=document.getElementById('c-w-sector').getContext('2d');
+  if(S.charts['c-w-sector'])S.charts['c-w-sector'].destroy();
+  S.charts['c-w-sector']=new Chart(ctx,{type:'bar',data:{labels:data.map(r=>r.Name),datasets:[
+    {label:'Agrícola',data:data.map(r=>pf(r.Agricultural)||0),backgroundColor:'#198754'},
+    {label:'Industrial',data:data.map(r=>pf(r.Industrial)||0),backgroundColor:'#0dcaf0'},
+    {label:'Doméstico',data:data.map(r=>pf(r.Domestic)||0),backgroundColor:'#6610f2'},
+  ]},options:{responsive:true,scales:{y:{min:0,max:5}}}});
+}
+
+// DC
+function renderDcCards(){
+  const d=dcFilt();el('dc-total',d.length.toLocaleString());
+  el('dc-countries',new Set(d.map(r=>r.Country)).size);el('dc-companies',new Set(d.map(r=>r.Company)).size);
+  const byCo=cntBy(d,'Country');const top=Object.entries(byCo).sort((a,b)=>b[1]-a[1])[0];
+  el('dc-top',top?`${top[0]} (${top[1]})`:'--');
+}
+
+function renderDcCountry(){const byCo=cntBy(dcFilt(),'Country');const top=Object.entries(byCo).sort((a,b)=>b[1]-a[1]).slice(0,20);drawBar('c-dc-country',top.map(r=>r[0]),top.map(r=>r[1]),'DCs','#fd7e14',true);}
+function renderDcCompany(){const byC=cntBy(dcFilt(),'Company');const top=Object.entries(byC).sort((a,b)=>b[1]-a[1]).slice(0,10);drawDoughnut('c-dc-company',top.map(r=>r[0]),top.map(r=>r[1]));}
+function renderDcTable(){document.getElementById('tbody-dc').innerHTML=dcFilt().map(r=>`<tr><td>${r.Name||''}</td><td>${r.Company||''}</td><td>${r.City||''}</td><td>${r.State||''}</td><td>${r.Country||''}</td></tr>`).join('');}
+
+// CO2
+function renderCo2(){
+  if(!S.data.co2.length){document.getElementById('co2-alert').style.display='';document.getElementById('co2-content').style.display='none';return;}
+  document.getElementById('co2-alert').style.display='none';document.getElementById('co2-content').style.display='';
+  const latY=Math.max(...S.data.co2.map(r=>r.Year));
+  const latest=S.data.co2.filter(r=>r.Year===latY&&r.Code?.length===3);
+  const top=latest.sort((a,b)=>b.val-a.val)[0];
+  const world=S.data.co2.find(r=>r.Code==='OWID_WRL'&&r.Year===latY);
+  el('co2-year',latY);el('co2-top-em',top?.Entity||'--');
+  el('co2-global',world?(world.val/1e9).toFixed(1):'--');
+  el('co2-entities',new Set(S.data.co2.filter(r=>r.Code?.length===3).map(r=>r.Code)).size);
+  const countries=[...new Set(S.data.co2.filter(r=>r.Code?.length===3).map(r=>r.Entity))].sort();
+  const sel=document.getElementById('co2-sel');sel.innerHTML='<option value="World">Mundial</option>';
+  countries.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o);});
+  drawCo2Line();drawCo2Top();
+}
+
+function drawCo2Line(){
+  const ent=document.getElementById('co2-sel')?.value||'World';
+  const d=S.data.co2.filter(r=>r.Entity===ent).sort((a,b)=>a.Year-b.Year);
+  const ctx=document.getElementById('c-co2-line').getContext('2d');
+  if(S.charts['c-co2-line'])S.charts['c-co2-line'].destroy();
+  S.charts['c-co2-line']=new Chart(ctx,{type:'line',data:{labels:d.map(r=>r.Year),datasets:[{label:`CO₂ — ${ent}`,data:d.map(r=>(r.val/1e9).toFixed(3)),borderColor:'#dc3545',backgroundColor:'rgba(220,53,69,.1)',fill:true,tension:.3}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Gt CO₂'}}}}});
+}
+
+function drawCo2Top(){
+  const latY=Math.max(...S.data.co2.map(r=>r.Year));
+  const top=S.data.co2.filter(r=>r.Year===latY&&r.Code?.length===3).sort((a,b)=>b.val-a.val).slice(0,15);
+  drawBar('c-co2-top',top.map(r=>r.Entity),top.map(r=>(r.val/1e9).toFixed(3)),'Gt CO₂','#dc3545',true);
+}
+
+// CORRELATIONS
+function renderCorr(){
+  const idx=buildIdx();
+  const dw=Object.values(idx).filter(r=>r.dc>0&&r.ws!=null).map(r=>({x:r.dc,y:r.ws,label:r.name}));
+  const da=Object.values(idx).filter(r=>r.dc>0&&r.pm25!=null).map(r=>({x:r.dc,y:r.pm25,label:r.name}));
+  drawScatter('c-corr-dw',dw,'Nº Data Centers','Score Stress Hídrico','rgba(13,110,253,.5)');
+  drawScatter('c-corr-da',da,'Nº Data Centers','PM2.5 μg/m³','rgba(13,202,240,.5)');
+  if(dw.length>5)el('note-dw',`Correlação de Pearson: r = ${pearson(dw.map(p=>p.x),dw.map(p=>p.y)).toFixed(3)}`);
+  if(da.length>5)el('note-da',`Correlação de Pearson: r = ${pearson(da.map(p=>p.x),da.map(p=>p.y)).toFixed(3)}`);
+  const rows=Object.values(idx).filter(r=>r.dc>0).map(r=>({...r,risk:((r.ws||0)/5*.4+(r.pm25||0)/100*.3+Math.log10(r.dc+1)/3*.3)})).sort((a,b)=>b.risk-a.risk).slice(0,30);
+  document.getElementById('tbody-risk').innerHTML=rows.map(r=>`<tr>
+    <td>${r.name}</td><td>${r.dc}</td><td>${r.ws!=null?r.ws.toFixed(2):'--'}</td>
+    <td><span class="badge ${wsBadge(r.ws)}">${wsLbl(r.ws)}</span></td>
+    <td>${r.pm25!=null?r.pm25.toFixed(1):'--'}</td>
+    <td><div class="progress" style="height:5px"><div class="progress-bar ${r.risk>.5?'bg-danger':r.risk>.3?'bg-warning':'bg-success'}" style="width:${Math.min(100,r.risk*100).toFixed(0)}%"></div></div><small>${(r.risk*100).toFixed(0)}%</small></td>
+  </tr>`).join('');
+}
+
+async function genCorrInsight(){
+  if(!S.apiKey){toast('Configure a API Key','warning');return;}
+  const e2=document.getElementById('ai-corr-text');e2.textContent='🔄 Gerando análise...';
+  try{const r=await gemini(buildSummary()+'\n\nAnalise correlações entre data centers, stress hídrico e qualidade do ar. Identifique países críticos e padrões. Responda em PT-BR, 4 parágrafos.');
+  e2.innerHTML=r.replace(/\n/g,'<br>');}catch(e){e2.textContent='Erro: '+e.message;}
+}
+
+// RANKINGS
+function buildRank(){
+  const idx=buildIdx();
+  S.ranked=Object.values(idx).map(r=>({...r,comp:((r.ws||0)/5*.35+(r.pm25||0)/100*.30+Math.log10(r.dc+1)/3*.20+(r.co2||0)/1e10*.15)})).sort((a,b)=>b.comp-a.comp);
+}
+
+function renderRank(){
+  document.getElementById('tbody-rank').innerHTML=S.ranked.map((r,i)=>`<tr>
+    <td>${i+1}</td><td>${r.name}</td><td>${r.dc}</td>
+    <td>${r.ws!=null?r.ws.toFixed(2):'--'}</td><td>${r.pm25!=null?r.pm25.toFixed(1):'--'}</td>
+    <td><div class="progress" style="height:5px;min-width:70px"><div class="progress-bar ${r.comp>.4?'bg-danger':r.comp>.2?'bg-warning':'bg-success'}" style="width:${Math.min(100,r.comp*200).toFixed(0)}%"></div></div>${(r.comp*100).toFixed(1)}</td>
+    <td><span class="badge ${r.comp>.4?'bg-danger':r.comp>.2?'bg-warning':'bg-success'}">${r.comp>.4?'Alto':r.comp>.2?'Médio':'Baixo'}</span></td>
+  </tr>`).join('');
+}
+
+function exportCsv(){
+  if(!S.ranked.length)return;
+  const csv=['País,DCs,Stress Hídrico,PM2.5,Índice Composto'].concat(S.ranked.map(r=>`"${r.name}",${r.dc},${(r.ws||0).toFixed(2)},${(r.pm25||0).toFixed(1)},${(r.comp*100).toFixed(1)}`)).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ranking_ambiental.csv';a.click();
+}
+
+function fillCmpSels(){
+  const names=Object.keys(buildIdx()).sort();
+  ['cmp-a','cmp-b'].forEach(id=>{
+    const sel=document.getElementById(id);sel.innerHTML='<option value="">-- Selecione --</option>';
+    names.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;sel.appendChild(o);});
+  });
+}
+
+function drawRadar(){
+  const a=document.getElementById('cmp-a').value;const b=document.getElementById('cmp-b').value;if(!a||!b)return;
+  const idx=buildIdx();const ca=idx[a]||{};const cb=idx[b]||{};
+  const n=(v,mx)=>Math.min(100,((v||0)/mx)*100);
+  const ctx=document.getElementById('c-radar').getContext('2d');
+  if(S.charts['c-radar'])S.charts['c-radar'].destroy();
+  S.charts['c-radar']=new Chart(ctx,{type:'radar',data:{labels:['Data Centers','Stress Hídrico','PM2.5','NO₂','CO₂'],datasets:[
+    {label:a,data:[n(ca.dc,500),n(ca.ws,5),n(ca.pm25,100),n(ca.no2,100),n(ca.co2,1e10)],borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,.2)'},
+    {label:b,data:[n(cb.dc,500),n(cb.ws,5),n(cb.pm25,100),n(cb.no2,100),n(cb.co2,1e10)],borderColor:'#dc3545',backgroundColor:'rgba(220,53,69,.2)'},
+  ]},options:{responsive:true,scales:{r:{min:0,max:100}},plugins:{legend:{position:'bottom'}}}});
+}
+
+// CHAT
+async function sendMsg(){
+  const inp=document.getElementById('chat-in');const msg=inp.value.trim();if(!msg)return;
+  inp.value='';addMsg('user',msg);
+  if(!S.apiKey){addMsg('ai','⚠️ Configure a Gemini API Key nas configurações.');return;}
+  const th=addMsg('ai thinking','⏳ Pensando...');
+  document.getElementById('chat-btn').disabled=true;
+  try{const r=await gemini(`Analista BI de meio ambiente. Responda em PT-BR com base nos dados:\n\n${buildSummary()}\n\nPergunta: ${msg}`);th.remove();addMsg('ai',r);}
+  catch(e){th.remove();addMsg('ai','❌ Erro: '+e.message);}
+  document.getElementById('chat-btn').disabled=false;
+}
+
+function useSug(btn){document.getElementById('chat-in').value=btn.textContent;sendMsg();}
+function addMsg(type,text){const c=document.getElementById('chat-messages');const d=document.createElement('div');d.className=`chat-message ${type}`;d.innerHTML=text.replace(/\n/g,'<br>');c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function clearChat(){document.getElementById('chat-messages').innerHTML='<div class="chat-message ai"><strong>🤖 Assistente BI</strong><br>Chat reiniciado!</div>';}
+
+// GEMINI
+async function gemini(prompt){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${S.apiKey}`;
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.7,maxOutputTokens:2048}})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
+  const d=await r.json();return d.candidates?.[0]?.content?.parts?.[0]?.text||'Sem resposta';
+}
+
+// DATA INDEX
+function buildIdx(){
+  const idx={};
+  const dcByIso=cntBy(S.data.dc,'iso3');
+  const airByIso={};const ag=grpBy(S.data.air.filter(r=>r.pm25!=null),'iso3');
+  Object.entries(ag).forEach(([iso,rows])=>{airByIso[iso]={pm25:avg(rows.map(r=>r.pm25)),no2:avg(rows.filter(r=>r.no2).map(r=>r.no2)),name:rows[0].country_name};});
+  const wsIso={};S.data.aqBase.filter(r=>r.indicator_name==='bws').forEach(r=>{wsIso[r.gid_0]={score:pf(r.score),name:r.name_0};});
+  const latY=S.data.co2.length?Math.max(...S.data.co2.map(r=>r.Year)):0;
+  const co2Iso={};S.data.co2.filter(r=>r.Year===latY&&r.Code?.length===3).forEach(r=>{co2Iso[r.Code]=r.val;});
+  const isos=new Set([...Object.keys(dcByIso),...Object.keys(airByIso),...Object.keys(wsIso),...Object.keys(co2Iso)]);
+  isos.forEach(iso=>{if(!iso||iso.length!==3)return;
+    const air=airByIso[iso]||{};const ws=wsIso[iso]||{};
+    idx[iso]={iso3:iso,name:ws.name||air.name||iso,dc:dcByIso[iso]||0,pm25:air.pm25||null,no2:air.no2||null,ws:ws.score||null,co2:co2Iso[iso]||null};
+  });
+  return idx;
+}
+
+function buildSummary(){
+  const idx=buildIdx();
+  const topDC=[...Object.values(idx)].sort((a,b)=>b.dc-a.dc).slice(0,8);
+  const topWS=[...Object.values(idx)].filter(r=>r.ws).sort((a,b)=>b.ws-a.ws).slice(0,8);
+  const topAir=[...Object.values(idx)].filter(r=>r.pm25).sort((a,b)=>b.pm25-a.pm25).slice(0,8);
+  return `DADOS: Total DCs: ${S.data.dc.length} | Cidades ar: ${S.data.air.length} | Países stress hídrico: ${S.data.aqBase.filter(r=>r.indicator_name==='bws').length}
+TOP DCs: ${topDC.map(r=>`${r.name}(${r.dc}DCs,WS:${r.ws?.toFixed(1)||'N/D'},PM2.5:${r.pm25?.toFixed(1)||'N/D'})`).join(', ')}
+TOP STRESS: ${topWS.map(r=>`${r.name}(${r.ws?.toFixed(2)},DCs:${r.dc})`).join(', ')}
+TOP PM2.5: ${topAir.map(r=>`${r.name}(${r.pm25?.toFixed(1)}μg/m³,DCs:${r.dc})`).join(', ')}
+PROJEÇÕES 2040 BAU: ${(S.data.ws['2040 BAU']||[]).slice(0,5).map(r=>`${r.Name}:${r['All Sectors']}`).join(', ')}`;
+}
+
+// FILTERS
+function fillFilters(){
+  const regions=[...new Set([...S.data.air.map(r=>r.who_region),...S.data.aqBase.map(r=>r.un_region)].filter(Boolean))].sort();
+  const fReg=document.getElementById('f-region');fReg.innerHTML='<option value="">Todas as Regiões</option>';
+  regions.forEach(r=>{const o=document.createElement('option');o.value=o.textContent=r;fReg.appendChild(o);});
+  const ctries=[...new Set([...S.data.dc.map(r=>r.Country),...S.data.air.map(r=>r.country_name)].filter(Boolean))].sort();
+  const fCo=document.getElementById('f-country');fCo.innerHTML='<option value="">Todos os Países</option>';
+  ctries.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;fCo.appendChild(o);});
+  document.getElementById('f-region').addEventListener('change',applyFilters);
+  document.getElementById('f-country').addEventListener('change',applyFilters);
+  document.getElementById('f-scenario').addEventListener('change',applyFilters);
+}
+
+function applyFilters(){renderAirCards();renderAirTop();renderAirScatter();renderAirTable();renderDcCards();renderDcCountry();renderDcCompany();renderDcTable();renderCorr();buildRank();renderRank();renderMapLayers();updateCounts();}
+function resetFilters(){['f-region','f-country'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-scenario').value='BAU';applyFilters();}
+function updateCounts(){el('fc-dc',`${dcFilt().length} DCs`);el('fc-air',`${airFilt().length} cidades`);}
+function airFilt(){let d=S.data.air;const r=document.getElementById('f-region')?.value;const c=document.getElementById('f-country')?.value;if(r)d=d.filter(x=>x.who_region===r);if(c)d=d.filter(x=>x.country_name===c);return d;}
+function dcFilt(){let d=S.data.dc;const c=document.getElementById('f-country')?.value;if(c)d=d.filter(x=>x.Country===c);return d;}
+
+// CONFIG
+function saveApiKey(){const k=document.getElementById('api-key').value.trim();S.apiKey=k;localStorage.setItem('bi_apikey',k);setApiSt(!!k);}
+function setApiSt(ok){document.getElementById('api-key-status').innerHTML=ok?'<span class="badge bg-success">✓ API Key configurada</span>':'<span class="badge bg-secondary">Vazio</span>';}
+function saveCo2Link(){const l=document.getElementById('co2-link').value.trim();S.co2Link=l;localStorage.setItem('bi_co2link',l);loadCO2().then(()=>{if(S.data.co2.length)renderCo2();});}
+
+// CHART HELPERS
+function drawBar(id,labels,data,label,bg,h=false){
+  const ctx=document.getElementById(id)?.getContext('2d');if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  S.charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:bg}]},options:{indexAxis:h?'y':'x',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true},y:{beginAtZero:true}}}});
+}
+
+function drawDoughnut(id,labels,data){
+  const ctx=document.getElementById(id)?.getContext('2d');if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  S.charts[id]=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:COLORS}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+}
+
+function drawScatter(id,points,xl,yl,color){
+  const ctx=document.getElementById(id)?.getContext('2d');if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  S.charts[id]=new Chart(ctx,{type:'scatter',data:{datasets:[{label:'Países',data:points,backgroundColor:color,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.label}: (${c.raw.x?.toFixed?c.raw.x.toFixed(1):c.raw.x}, ${c.raw.y?.toFixed?c.raw.y.toFixed(2):c.raw.y})`}}},scales:{x:{title:{display:true,text:xl}},y:{title:{display:true,text:yl}}}}});
+}
+
+// TABLE
+function filterTable(qId,tbId){const q=document.getElementById(qId).value.toLowerCase();document.querySelectorAll(`#${tbId} tr`).forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
+function sortTbl(tbId,col){const tb=document.getElementById(tbId);if(!tb)return;const rows=[...tb.querySelectorAll('tr')];const key=`${tbId}-${col}`;const asc=S.sortDir[key]=!S.sortDir[key];rows.sort((a,b)=>{const av=a.cells[col]?.textContent?.trim()||'';const bv=b.cells[col]?.textContent?.trim()||'';const an=parseFloat(av),bn=parseFloat(bv);const cmp=!isNaN(an)&&!isNaN(bn)?an-bn:av.localeCompare(bv);return asc?cmp:-cmp;});rows.forEach(r=>tb.appendChild(r));}
+
+// XLSX
+async function fetchWb(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return XLSX.read(await r.arrayBuffer(),{type:'array'});}
+async function fetchSheet(url,sheetNameOrIdx){const wb=await fetchWb(url);let sheet;if(typeof sheetNameOrIdx==='number')sheet=wb.Sheets[wb.SheetNames[sheetNameOrIdx]];else{const name=wb.SheetNames.find(n=>n.toLowerCase()===sheetNameOrIdx.toLowerCase())||wb.SheetNames[0];sheet=wb.Sheets[name];}if(!sheet)throw new Error(`Sheet "${sheetNameOrIdx}" não encontrada`);return XLSX.utils.sheet_to_json(sheet);}
+
+// UTILS
+const pf=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+const avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+const grpBy=(arr,k)=>arr.reduce((a,r)=>{const v=r[k]||'?';if(!a[v])a[v]=[];a[v].push(r);return a;},{});
+const cntBy=(arr,k)=>arr.reduce((a,r)=>{const v=r[k]||'?';a[v]=(a[v]||0)+1;return a;},{});
+const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const exId=url=>{const m=(url||'').match(/\/d\/([^\/\?]+)/)||((url||'').match(/id=([^&]+)/));return m?m[1]:null;};
+function pearson(xs,ys){const n=xs.length;if(n<2)return 0;const mx=avg(xs),my=avg(ys);const num=xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);const dx=Math.sqrt(xs.reduce((s,x)=>s+(x-mx)**2,0));const dy=Math.sqrt(ys.reduce((s,y)=>s+(y-my)**2,0));return(dx&&dy)?num/(dx*dy):0;}
+const wsBadge=s=>s==null?'bg-secondary':s>=4?'bg-danger':s>=3?'bg-warning text-dark':s>=2?'bg-info text-dark':'bg-success';
+const wsLbl=s=>s==null?'N/D':s>=4?'Extremo':s>=3?'Alto':s>=2?'Médio-Alto':'Baixo';
+function showLoad(v){document.getElementById('loading-overlay').style.display=v?'flex':'none';}
+function prog(pct,msg){document.getElementById('load-bar').style.width=pct+'%';document.getElementById('load-msg').textContent=msg;}
+function setSt(src,st){[`s-${src}`,`cs-${src}`].forEach(id=>{const e=document.getElementById(id);if(e)e.className=`data-status ${st}`;});}
+function toast(msg,type='info'){document.getElementById('toast-b').textContent=msg;document.getElementById('toast-t').textContent=type==='danger'?'❌ Erro':type==='warning'?'⚠️ Aviso':'ℹ️ Info';document.getElementById('mainToast').className=`toast border-${type}`;new bootstrap.Toast(document.getElementById('mainToast'),{delay:5000}).show();}
+
+const ISO3={'United States':'USA','United States of America':'USA','US':'USA','China':'CHN','Germany':'DEU','United Kingdom':'GBR','France':'FRA','Japan':'JPN','Australia':'AUS','Canada':'CAN','Netherlands':'NLD','Singapore':'SGP','India':'IND','Brazil':'BRA','South Korea':'KOR','Sweden':'SWE','Switzerland':'CHE','Finland':'FIN','Norway':'NOR','Denmark':'DNK','Spain':'ESP','Italy':'ITA','Poland':'POL','Russia':'RUS','South Africa':'ZAF','Mexico':'MEX','Argentina':'ARG','Chile':'CHL','Colombia':'COL','Peru':'PER','Indonesia':'IDN','Malaysia':'MYS','Thailand':'THA','Vietnam':'VNM','Philippines':'PHL','Pakistan':'PAK','Bangladesh':'BGD','Nigeria':'NGA','Egypt':'EGY','Kenya':'KEN','Morocco':'MAR','Ghana':'GHA','Ethiopia':'ETH','Turkey':'TUR','Saudi Arabia':'SAU','UAE':'ARE','United Arab Emirates':'ARE','Israel':'ISR','Iran':'IRN','Iraq':'IRQ','Portugal':'PRT','Ireland':'IRL','Belgium':'BEL','Austria':'AUT','Czech Republic':'CZE','Hungary':'HUN','Romania':'ROU','Greece':'GRC','New Zealand':'NZL','Hong Kong':'HKG','Taiwan':'TWN','Ukraine':'UKR','Kazakhstan':'KAZ','Algeria':'DZA','Tunisia':'TUN','Libya':'LBY','Sudan':'SDN','Tanzania':'TZA','Uganda':'UGA','Venezuela':'VEN','Ecuador':'ECU','Bolivia':'BOL','Uruguay':'URY','Guatemala':'GTM','Honduras':'HND','Costa Rica':'CRI','Panama':'PAN','Cuba':'CUB','Dominican Republic':'DOM','Sri Lanka':'LKA','Nepal':'NPL','Myanmar':'MMR','Cambodia':'KHM','Mongolia':'MNG','Oman':'OMN','Kuwait':'KWT','Qatar':'QAT','Bahrain':'BHR','Jordan':'JOR','Lebanon':'LBN','Syria':'SYR','Yemen':'YEM','Afghanistan':'AFG','Georgia':'GEO','Armenia':'ARM','Azerbaijan':'AZE','Slovakia':'SVK','Croatia':'HRV','Serbia':'SRB','Albania':'ALB','Slovenia':'SVN','Latvia':'LVA','Lithuania':'LTU','Estonia':'EST','Iceland':'ISL','Luxembourg':'LUX','Malta':'MLT','Cyprus':'CYP','Bulgaria':'BGR'};
+function n2iso(name){return ISO3[name]||(name.length>=3?name.substring(0,3).toUpperCase():'UNK');}
+
+document.addEventListener('shown.bs.tab',e=>{
+  if(e.target.getAttribute('href')==='#tab-map'&&S.map)S.map.invalidateSize();
+  if(e.target.getAttribute('href')==='#w-sector')drawSector();
+});
+</script>
+</body>
+</html>
