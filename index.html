@@ -33,7 +33,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
   max-width: none !important;
   max-height: none !important;
 }
-.chart-scroll-box{height:480px;overflow-y:auto;overflow-x:hidden;position:relative;border-radius:.375rem;padding:4px}
+.chart-scroll-box{height:480px;overflow-y:auto !important;overflow-x:hidden;position:relative;border-radius:.375rem;padding:6px;background:rgba(0,0,0,0.15);border:1px solid var(--bs-border-color)}
+.chart-inner-wrap{position:relative;width:100%}
+.chart-inner-wrap canvas{width:100% !important;display:block}
 select[multiple]{min-height:88px;font-size:.83rem}
 .ms-hint{font-size:.7rem;color:var(--bs-secondary-color)}
 .sort-btn{font-size:.75rem;padding:.2rem .5rem}
@@ -311,7 +313,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           </div>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-air-top"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-air-top"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -357,7 +359,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
               <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-w-base" onclick="toggleChartSort('c-w-base', renderWaterBase)">⬇️ Maior → Menor</button>
             </div>
             <div class="card-body p-2">
-              <div class="chart-scroll-box"><canvas id="c-w-base"></canvas></div>
+              <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-w-base"></canvas></div></div>
             </div>
           </div>
         </div>
@@ -385,7 +387,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
               </div>
             </div>
             <div class="card-body p-2">
-              <div class="chart-scroll-box"><canvas id="c-w-ind"></canvas></div>
+              <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-w-ind"></canvas></div></div>
             </div>
           </div>
         </div>
@@ -411,7 +413,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
               <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-aq-bar" onclick="toggleChartSort('c-aq-bar', drawAquastat)">⬇️ Maior → Menor</button>
             </div>
             <div class="card-body p-2">
-              <div class="chart-scroll-box"><canvas id="c-aq-bar"></canvas></div>
+              <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-aq-bar"></canvas></div></div>
             </div>
           </div>
         </div>
@@ -454,11 +456,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-dc-country" onclick="toggleChartSort('c-dc-country', renderDcCountry)">⬇️ Maior → Menor</button>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-dc-country"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-dc-country"></canvas></div></div>
         </div>
       </div>
     </div>
-    <div class="col-md-6"><div class="card h-100"><div class="card-header">⚡ Capacidade Instalada por Região (GW) — IEA 2024</div><div class="card-body"><canvas id="c-dc-gw"></canvas></div></div></div>
+    <div class="col-md-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>⚡ Capacidade Instalada por Região (GW) — IEA 2024</span><button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-dc-gw" onclick="toggleChartSort('c-dc-gw', renderDcGW)">⬇️ Maior → Menor</button></div><div class="card-body"><canvas id="c-dc-gw"></canvas></div></div></div>
     <div class="col-md-6"><div class="card"><div class="card-header">📈 Capacidade Mundial por Cenário (GW) — IEA</div><div class="card-body"><canvas id="c-dc-scenario"></canvas></div></div></div>
     <div class="col-md-6"><div class="card"><div class="card-header">🔋 Eficiência Energética (PUE Médio) por Região (2024)</div><div class="card-body"><canvas id="c-dc-pue"></canvas></div></div></div>
     <div class="col-md-5"><div class="card h-100"><div class="card-header">🏭 Por Empresa — Top 10</div><div class="card-body"><canvas id="c-dc-company"></canvas></div></div></div>
@@ -510,7 +512,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-sub-cap" onclick="toggleChartSort('c-sub-cap', renderSubCap)">⬇️ Maior → Menor</button>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-sub-cap"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-sub-cap"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -521,7 +523,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-sub-gdp" onclick="toggleChartSort('c-sub-gdp', renderSubGdp)">⬇️ Maior → Menor</button>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-sub-gdp"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-sub-gdp"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -557,7 +559,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-co2-top" onclick="toggleChartSort('c-co2-top', drawCo2Top)">⬇️ Maior → Menor</button>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-co2-top"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-co2-top"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -596,7 +598,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-ind-top" onclick="toggleChartSort('c-ind-top', renderIndustry)">⬇️ Maior → Menor</button>
         </div>
         <div class="card-body p-2">
-          <div class="chart-scroll-box"><canvas id="c-ind-top"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-ind-top"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -636,7 +638,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
           </table>
         </div></div>
         <div id="risk-chart-view" class="card-body p-2" style="display:none">
-          <div class="chart-scroll-box"><canvas id="c-risk-bar"></canvas></div>
+          <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-risk-bar"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -1451,11 +1453,13 @@ function renderMiniCo2() {
 // ─── AIR QUALITY TAB ─────────────────────────────────────────────────────────
 function renderAirCards() {
   const d = airFilt();
-  const p25 = d.filter(r => r.pm25 != null), p10 = d.filter(r => r.pm10 != null);
-  el('air-pm25', p25.length ? avg(p25.map(r => r.pm25)).toFixed(1) : '--');
-  el('air-pm10', p10.length ? avg(p10.map(r => r.pm10)).toFixed(1) : '--');
+  const p25 = d.map(r => r.pm25).filter(v => v != null && !isNaN(v));
+  const p10 = d.map(r => r.pm10).filter(v => v != null && !isNaN(v));
+  el('air-pm25', p25.length ? avg(p25).toFixed(1) : '--');
+  el('air-pm10', p10.length ? avg(p10).toFixed(1) : '--');
   el('air-cities', d.length.toLocaleString('pt-BR'));
-  const byC = grpByObj(p25, 'country_name');
+  const validD = d.filter(r => r.pm25 != null && !isNaN(r.pm25));
+  const byC = grpByObj(validD, 'country_name');
   let worst = '--', wv = 0;
   Object.entries(byC).forEach(([c, rows]) => {
     const a = avg(rows.map(r => r.pm25));
@@ -1716,13 +1720,37 @@ function renderDcTable() {
 function renderDcGW() {
   const cap = EMBEDDED.dcCapacity;
   const regs = ['North America','United States','Europe','Asia Pacific','China','Africa','Middle East','Central and South America'];
-  const vals2024 = regs.map(r => { const arr = cap.totalGW[r]; return arr ? arr[2] : 0; });
-  const ctx = document.getElementById('c-dc-gw').getContext('2d');
+  const items = regs.map(r => ({
+    reg: r,
+    val: cap.totalGW[r] ? cap.totalGW[r][2] : 0
+  }));
+  const sorted = sortRanking(items, r => r.val, 'c-dc-gw');
+  const ctx = document.getElementById('c-dc-gw')?.getContext('2d');
+  if (!ctx) return;
   if (S.charts['c-dc-gw']) S.charts['c-dc-gw'].destroy();
   S.charts['c-dc-gw'] = new Chart(ctx, {
     type: 'bar',
-    data: { labels: regs, datasets: [{ label: 'Capacidade Total 2024 (GW)', data: vals2024, backgroundColor: '#0d6efd' }] },
-    options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
+    data: {
+      labels: sorted.map(r => r.reg),
+      datasets: [{
+        label: 'Capacidade Total 2024 (GW)',
+        data: sorted.map(r => r.val),
+        backgroundColor: '#0d6efd',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.raw} GW` } }
+      },
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'GW (Gigawatts)' } },
+        y: { ticks: { font: { size: 12, weight: '500' } } }
+      }
+    }
   });
 }
 
@@ -2283,16 +2311,40 @@ function drawBar(id, labels, data, label, bg, horiz = false) {
 function drawScrollableBar(id, labels, data, label, bgColors) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
-  const barH = 26;
-  const totalH = Math.max(420, labels.length * barH + 60);
+
+  // Altura ideal: 28px por item para fonte confortável de 12px sem sobreposição
+  const barH = 28;
+  const totalH = Math.max(480, labels.length * barH + 70);
+
+  let wrap = canvas.parentElement;
+  if (!wrap || !wrap.classList.contains('chart-inner-wrap')) {
+    const parent = canvas.parentElement;
+    wrap = document.createElement('div');
+    wrap.className = 'chart-inner-wrap';
+    wrap.style.position = 'relative';
+    wrap.style.width = '100%';
+    parent.replaceChild(wrap, canvas);
+    wrap.appendChild(canvas);
+  }
+  wrap.style.height = totalH + 'px';
   canvas.style.height = totalH + 'px';
+
   const ctx = canvas.getContext('2d');
   if (S.charts[id]) S.charts[id].destroy();
+
   S.charts[id] = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{ label: label, data: data, backgroundColor: bgColors, borderWidth: 0, borderRadius: 3 }]
+      datasets: [{
+        label: label,
+        data: data,
+        backgroundColor: bgColors,
+        borderWidth: 0,
+        borderRadius: 3,
+        barPercentage: 0.75,
+        categoryPercentage: 0.85
+      }]
     },
     options: {
       indexAxis: 'y',
@@ -2300,11 +2352,28 @@ function drawScrollableBar(id, labels, data, label, bgColors) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => `${label}: ${ctx.raw}` } }
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${label}: ${typeof ctx.raw === 'number' ? ctx.raw.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : ctx.raw}`
+          }
+        }
       },
       scales: {
-        x: { beginAtZero: true, title: { display: true, text: label } },
-        y: { ticks: { autoSkip: false, font: { size: 11 } } }
+        x: {
+          beginAtZero: true,
+          position: 'top',
+          grid: { color: 'rgba(255,255,255,0.08)' },
+          title: { display: true, text: label, font: { weight: 'bold', size: 12 } }
+        },
+        y: {
+          ticks: {
+            autoSkip: false,
+            font: { size: 12, weight: '500' },
+            color: '#e2e8f0',
+            padding: 8
+          },
+          grid: { display: false }
+        }
       }
     }
   });
@@ -2361,7 +2430,10 @@ function sortTbl(tbId, col) {
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const pf = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
-const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
+const avg = arr => {
+  const valid = arr.map(v => typeof v === 'number' ? v : parseFloat(v)).filter(v => v != null && !isNaN(v));
+  return valid.length ? valid.reduce((s, v) => s + v, 0) / valid.length : 0;
+};
 function grpByObj(arr, k) { return arr.reduce((a, r) => { const v = r[k] || '?'; if (!a[v]) a[v] = []; a[v].push(r); return a; }, {}); }
 const el = (id, v) => { const e = document.getElementById(id); if (e) { if (typeof v === 'string' && v.includes('<')) e.innerHTML = v; else e.textContent = v; } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
