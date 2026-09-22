@@ -27,7 +27,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
 .data-status.ok{background:#2ea043}.data-status.loading{background:#f0883e;animation:pulse 1s infinite}.data-status.error{background:#f85149}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .nav-tabs .nav-link{font-size:.82rem;padding:.45rem .75rem}
-canvas{max-width:100%}
+/* Only Chart.js canvases should have max-width: 100% */
+.chart-scroll-box canvas, .card-body > canvas { max-width: 100%; }
+.leaflet-pane canvas, .leaflet-container canvas, .leaflet-heatmap-layer {
+  max-width: none !important;
+  max-height: none !important;
+}
 .chart-scroll-box{height:480px;overflow-y:auto;overflow-x:hidden;position:relative;border-radius:.375rem;padding:4px}
 select[multiple]{min-height:88px;font-size:.83rem}
 .ms-hint{font-size:.7rem;color:var(--bs-secondary-color)}
