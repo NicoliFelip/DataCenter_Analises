@@ -7,12 +7,11 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
-<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet">
-<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" rel="stylesheet">
 <style>
 body{font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
 #loading-overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem}
-#map-container{height:calc(100vh - 230px);min-height:480px}
+#map-container{height:540px;width:100%;border-radius:0 0 .375rem .375rem}
+.mini-map-box{height:280px;width:100%;border-radius:0 0 .375rem .375rem}
 .metric-card{text-align:center;padding:1.1rem;border-radius:.5rem}
 .metric-card .value{font-size:1.9rem;font-weight:700}
 .metric-card .label{font-size:.76rem;opacity:.7;text-transform:uppercase;letter-spacing:.05em}
@@ -33,6 +32,12 @@ canvas{max-width:100%}
 select[multiple]{min-height:88px;font-size:.83rem}
 .ms-hint{font-size:.7rem;color:var(--bs-secondary-color)}
 .sort-btn{font-size:.75rem;padding:.2rem .5rem}
+/* Map Styling */
+.map-ctrl-bar{background:var(--bs-body-tertiary);border-bottom:1px solid var(--bs-border-color);padding:.6rem .85rem;border-radius:.375rem .375rem 0 0}
+.map-legend-box{font-size:.75rem;padding:.4rem .75rem;border-radius:.375rem;background:rgba(22,27,34,.88);border:1px solid rgba(255,255,255,.15);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.legend-gradient{height:10px;border-radius:3px;margin:4px 0}
+.legend-chip{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -124,16 +129,157 @@ select[multiple]{min-height:88px;font-size:.83rem}
 
 <!-- ═══ MAPA ═══ -->
 <div class="tab-pane fade show active" id="tab-map">
-  <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-      <span><i class="bi bi-layers me-1"></i>Camadas do Mapa</span>
-      <div class="btn-group btn-group-sm">
-        <button class="btn btn-outline-warning active" id="bl-dc" onclick="toggleLayer('dc')">🏢 Data Centers</button>
-        <button class="btn btn-outline-info active" id="bl-air" onclick="toggleLayer('air')">💨 Qualidade do Ar</button>
-        <button class="btn btn-outline-primary active" id="bl-water" onclick="toggleLayer('water')">💧 Stress Hídrico</button>
+  <!-- MAPA PRINCIPAL -->
+  <div class="card mb-3">
+    <div class="map-ctrl-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-bold small text-primary"><i class="bi bi-layers-fill me-1"></i>Camada Temática:</span>
+        <div>
+          <select class="form-select form-select-sm" id="map-theme" style="width:230px" onchange="onMapThemeChange()">
+            <option value="water_base">💧 Stress Hídrico Geral (BWS)</option>
+            <option value="water_ind">🏭 Stress Hídrico Industrial</option>
+            <option value="air_heat">💨 Qualidade do Ar (Heatmap OMS)</option>
+            <option value="energy_gdp">⚡ Subsídios Fósseis (% PIB)</option>
+            <option value="energy_cap">⚡ Subsídios Fósseis (per capita)</option>
+            <option value="co2">🌫️ Emissões de CO₂ (Gt)</option>
+            <option value="ind_carb">🏭 Intensidade de Carbono</option>
+            <option value="none">🏢 Apenas Data Centers</option>
+          </select>
+        </div>
+        <div id="map-sub-wrap">
+          <select class="form-select form-select-sm" id="map-sub" style="width:145px" onchange="updateMainMapTheme()"></select>
+        </div>
+        <div id="map-year-wrap">
+          <select class="form-select form-select-sm" id="map-year" style="width:115px" onchange="updateMainMapTheme()"></select>
+        </div>
+        <div>
+          <select class="form-select form-select-sm" id="map-dc-comp" style="width:160px" onchange="updateMainMapDCs()">
+            <option value="">🏢 Todas Empresas</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width:190px">
+          <input type="text" class="form-control" id="map-search" placeholder="Buscar cidade/país..." onkeydown="if(event.key==='Enter')searchMapLocation()">
+          <button class="btn btn-outline-secondary" onclick="searchMapLocation()"><i class="bi bi-search"></i></button>
+        </div>
+        <div class="d-flex align-items-center gap-1 border rounded px-2 py-1 bg-body-secondary" style="height:31px">
+          <small class="text-muted" style="font-size:.7rem">Opacidade:</small>
+          <input type="range" class="form-range" id="map-opacity" min="0.1" max="1" step="0.05" value="0.75" style="width:60px" oninput="updateMapOpacity(this.value)">
+        </div>
+        <div class="form-check form-switch d-flex align-items-center mb-0 ps-4">
+          <input class="form-check-input" type="checkbox" id="toggle-dc-dots" checked onchange="toggleDcDots(this.checked)">
+          <label class="form-check-label small ms-1" for="toggle-dc-dots">Ver DCs</label>
+        </div>
+        <span class="badge bg-primary" id="map-dc-count">0 DCs</span>
       </div>
     </div>
-    <div class="card-body p-0"><div id="map-container"></div></div>
+    
+    <div class="card-body p-0 position-relative">
+      <div id="map-container"></div>
+      <div id="main-map-legend" class="position-absolute bottom-0 start-0 m-3 map-legend-box" style="z-index:1000;max-width:320px;pointer-events:auto"></div>
+    </div>
+    <div class="card-footer py-1 px-3 d-flex justify-content-between align-items-center small text-muted">
+      <span><span class="legend-dot" style="background:#0dcaf0;border:1px solid #0d6efd"></span> <strong>Bolinhas Ciano:</strong> Cada Data Center individual em sua coordenada geográfica (sem agrupamento).</span>
+      <button class="btn btn-link btn-sm text-decoration-none p-0 text-muted" onclick="resetMainMapView()"><i class="bi bi-arrows-fullscreen me-1"></i>Resetar Visão</button>
+    </div>
+  </div>
+
+  <!-- 4 MINI-MAPAS ANALÍTICOS FIXOS NA BASE -->
+  <div class="row g-3">
+    <!-- MINI-MAPA 1: ÁGUA -->
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-1">
+          <span class="fw-semibold small"><i class="bi bi-droplet-fill text-primary me-1"></i>1. Stress Hídrico + DCs</span>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm py-0 px-2" id="mm-w-scen" style="width:150px;font-size:.75rem" onchange="renderMiniWater()">
+              <option value="base">Baseline (Geral BWS)</option>
+              <option value="ind_2020">Industrial (2020 BAU)</option>
+              <option value="ind_2030">Industrial (2030 BAU)</option>
+              <option value="ind_2040">Industrial (2040 BAU)</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Reset Zoom" onclick="resetMiniZoom('water')"><i class="bi bi-arrows-fullscreen"></i></button>
+          </div>
+        </div>
+        <div class="card-body p-0 position-relative">
+          <div id="mm-water" class="mini-map-box"></div>
+          <div id="mm-water-legend" class="position-absolute bottom-0 start-0 m-2 map-legend-box py-1 px-2" style="z-index:900;font-size:.7rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MINI-MAPA 2: AR (HEATMAP) -->
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-1">
+          <span class="fw-semibold small"><i class="bi bi-wind text-info me-1"></i>2. Qualidade do Ar (Heatmap OMS) + DCs</span>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm py-0 px-2" id="mm-air-pol" style="width:90px;font-size:.75rem" onchange="renderMiniAir()">
+              <option value="pm25">PM2.5</option>
+              <option value="pm10">PM10</option>
+              <option value="no2">NO₂</option>
+            </select>
+            <select class="form-select form-select-sm py-0 px-2" id="mm-air-yr" style="width:95px;font-size:.75rem" onchange="renderMiniAir()">
+              <option value="all">Todos Anos</option>
+              <option value="2022">2022</option>
+              <option value="2020">2020</option>
+              <option value="2018">2018</option>
+              <option value="2015">2015</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Reset Zoom" onclick="resetMiniZoom('air')"><i class="bi bi-arrows-fullscreen"></i></button>
+          </div>
+        </div>
+        <div class="card-body p-0 position-relative">
+          <div id="mm-air" class="mini-map-box"></div>
+          <div id="mm-air-legend" class="position-absolute bottom-0 start-0 m-2 map-legend-box py-1 px-2" style="z-index:900;font-size:.7rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MINI-MAPA 3: ENERGIA & SUBSÍDIOS -->
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-1">
+          <span class="fw-semibold small"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>3. Subsídios Fósseis (IEA) + DCs</span>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm py-0 px-2" id="mm-en-type" style="width:135px;font-size:.75rem" onchange="renderMiniEnergy()">
+              <option value="gdp">% do PIB</option>
+              <option value="cap">per capita (USD)</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Reset Zoom" onclick="resetMiniZoom('energy')"><i class="bi bi-arrows-fullscreen"></i></button>
+          </div>
+        </div>
+        <div class="card-body p-0 position-relative">
+          <div id="mm-energy" class="mini-map-box"></div>
+          <div id="mm-energy-legend" class="position-absolute bottom-0 start-0 m-2 map-legend-box py-1 px-2" style="z-index:900;font-size:.7rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MINI-MAPA 4: EMISSÕES DE CO2 -->
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-1">
+          <span class="fw-semibold small"><i class="bi bi-cloud-haze2-fill text-danger me-1"></i>4. Emissões de CO₂ (Gt) + DCs</span>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm py-0 px-2" id="mm-co2-yr" style="width:90px;font-size:.75rem" onchange="renderMiniCo2()">
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2020">2020</option>
+              <option value="2015">2015</option>
+              <option value="2010">2010</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Reset Zoom" onclick="resetMiniZoom('co2')"><i class="bi bi-arrows-fullscreen"></i></button>
+          </div>
+        </div>
+        <div class="card-body p-0 position-relative">
+          <div id="mm-co2" class="mini-map-box"></div>
+          <div id="mm-co2-legend" class="position-absolute bottom-0 start-0 m-2 map-legend-box py-1 px-2" style="z-index:900;font-size:.7rem"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -615,7 +761,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -634,9 +780,16 @@ const XL = id => `https://docs.google.com/spreadsheets/d/${id}/export?format=xls
 const S = {
   apiKey: localStorage.getItem('bi_apikey') || '',
   data: { dc: [], air: [], co2: EMBEDDED.co2 || [], aqBase: [], aqFuture: [], ws: {} },
-  charts: {}, map: null, geo: null,
-  layers: { dc: true, air: true, water: true },
-  mapObjs: {}, airMetric: 'pm25', ranked: [], sortDir: {},
+  charts: {},
+  map: null,
+  miniMaps: {},
+  geo: null,
+  mainThemeLayer: null,
+  mainDcLayer: null,
+  miniLayers: {},
+  showDcDots: true,
+  opacity: 0.75,
+  airMetric: 'pm25', ranked: [], sortDir: {},
   wfSerie: 'All Sectors', riskRows: [], rankAsc: {},
   subFuels: ['total']
 };
@@ -713,7 +866,8 @@ function cleanLabel(s) {
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   if (S.apiKey) { document.getElementById('api-key').value = S.apiKey; setApiSt(true); }
-  initMap();
+  initAllMaps();
+  onMapThemeChange();
   await loadAllData();
 });
 
@@ -749,6 +903,7 @@ async function loadAir() {
       pm25: pf(r.pm25_concentration),
       pm10: pf(r.pm10_concentration),
       no2: pf(r.no2_concentration),
+      year: parseInt(r.year) || null,
       lat: pf(r.latitude),
       lon: pf(r.longitude)
     })).filter(r => r.country_name);
@@ -802,6 +957,7 @@ async function loadGeo() {
 // ─── RENDER ALL ──────────────────────────────────────────────────────────────
 function renderAll() {
   fillFilters();
+  fillDcCompanies();
   renderAirCards(); renderAirTop(); renderAirScatter(); renderAirTable();
   renderWaterCards(); renderWaterBase(); renderWaterCat();
   fillWaterCtries(); drawWorst(); drawIndustrial(); renderIndustrialCards();
@@ -810,67 +966,407 @@ function renderAll() {
   renderEnergyCards(); renderSubGlobal(); renderSubCap(); renderSubGdp(); renderEnDcScenarios();
   renderCo2();
   renderIndustry(); fillIndCountries();
-  renderMapLayers(); renderCorr(); buildRank(); renderRank(); fillCmpSels();
+  renderCorr(); buildRank(); renderRank(); fillCmpSels();
   drawAquastat(); updateCounts();
+  
+  // Render Main Map & Mini Maps
+  updateMainMapTheme();
+  updateMainMapDCs();
+  renderAllMiniMaps();
 }
 
-// ─── MAP ─────────────────────────────────────────────────────────────────────
-function initMap() {
-  S.map = L.map('map-container').setView([20, 0], 2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 18 }).addTo(S.map);
+// ─── MAPS INITIALIZATION & UTILITIES ──────────────────────────────────────────
+function initAllMaps() {
+  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const attrib = '&copy; OpenStreetMap';
+
+  // Main Map
+  S.map = L.map('map-container', { zoomControl: true, minZoom: 2 }).setView([22, 0], 2);
+  L.tileLayer(tileUrl, { attribution: attrib, maxZoom: 18 }).addTo(S.map);
+
+  // 4 Mini Maps
+  const miniConfigs = [
+    { id: 'water', el: 'mm-water' },
+    { id: 'air', el: 'mm-air' },
+    { id: 'energy', el: 'mm-energy' },
+    { id: 'co2', el: 'mm-co2' }
+  ];
+
+  miniConfigs.forEach(m => {
+    const mini = L.map(m.el, { zoomControl: false, minZoom: 1, attributionControl: false }).setView([20, 10], 1);
+    L.tileLayer(tileUrl, { maxZoom: 18 }).addTo(mini);
+    S.miniMaps[m.id] = mini;
+  });
 }
 
-function renderMapLayers() {
-  if (!S.map) return;
-  Object.values(S.mapObjs).forEach(l => { try { S.map.removeLayer(l); } catch (e) {} });
-  S.mapObjs = {};
-  if (S.layers.dc && S.data.dc.length) {
-    const cl = L.markerClusterGroup();
-    dcFilt().forEach(d => {
-      const m = L.marker([d.lat, d.lon], { icon: L.divIcon({ html: '🏢', iconSize: [20, 20], className: '' }) });
-      m.bindPopup(`<b>${d.Name || 'Data Center'}</b><br>🏭 ${d.Company || ''}<br>📍 ${d.City || ''}, ${d.Country || ''}`);
-      cl.addLayer(m);
+function resetMainMapView() {
+  if (S.map) S.map.setView([22, 0], 2);
+}
+
+function resetMiniZoom(id) {
+  if (S.miniMaps[id]) S.miniMaps[id].setView([20, 10], 1);
+}
+
+// Create High-Performance DC Individual Dots Layer with Canvas
+function createDcLayer(mapInst, list) {
+  const canvasRenderer = L.canvas({ padding: 0.5 });
+  const grp = L.layerGroup();
+  list.forEach(d => {
+    if (!d.lat || !d.lon) return;
+    const cm = L.circleMarker([d.lat, d.lon], {
+      renderer: canvasRenderer,
+      radius: 3.5,
+      color: '#0d6efd',
+      weight: 0.8,
+      fillColor: '#0dcaf0',
+      fillOpacity: 0.65,
+      opacity: 0.85
     });
-    S.map.addLayer(cl); S.mapObjs.dc = cl;
+    cm.bindTooltip(`<b>${d.Name || 'Data Center'}</b><br>🏭 ${d.Company || 'N/A'}<br>📍 ${d.City || ''}, ${d.Country || ''}`, {
+      direction: 'top',
+      offset: [0, -3]
+    });
+    grp.addLayer(cm);
+  });
+  return grp;
+}
+
+function fillDcCompanies() {
+  const d = S.data.dc || [];
+  const comps = [...new Set(d.map(r => r.Company).filter(Boolean))].sort();
+  const sel = document.getElementById('map-dc-comp');
+  sel.innerHTML = '<option value="">🏢 Todas Empresas</option>';
+  comps.forEach(c => {
+    const o = document.createElement('option');
+    o.value = o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
+function updateMainMapDCs() {
+  if (!S.map) return;
+  if (S.mainDcLayer) {
+    S.map.removeLayer(S.mainDcLayer);
+    S.mainDcLayer = null;
   }
-  if (!S.geo) return;
-  if (S.layers.air && S.data.air.length) {
-    const byIso = {};
-    const d = airFilt().filter(r => r.pm25 != null);
-    const g = grpByObj(d, 'iso3');
-    Object.entries(g).forEach(([iso, rows]) => { byIso[iso] = avg(rows.map(r => r.pm25)); });
-    S.mapObjs.air = choropleth(byIso, [0, 10, 25, 35, 50, 75], ['#2dc653','#a8c090','#f0c040','#f08030','#e04020','#c00000'], 'PM2.5 μg/m³').addTo(S.map);
+  if (!S.showDcDots) {
+    el('map-dc-count', '0 DCs');
+    return;
   }
-  if (S.layers.water && S.data.aqBase.length) {
-    const byIso = {};
-    S.data.aqBase.filter(r => pf(r.score) >= 0 && pf(r.score) <= 5).forEach(r => { byIso[r.gid_0] = pf(r.score) || 0; });
-    S.mapObjs.water = choropleth(byIso, [0, 1, 2, 3, 4], ['#cce5ff','#88bbff','#ffc107','#fd7e14','#dc3545'], 'Stress Hídrico').addTo(S.map);
+  const comp = document.getElementById('map-dc-comp')?.value || '';
+  let d = dcFilt();
+  if (comp) d = d.filter(r => r.Company === comp);
+  S.mainDcLayer = createDcLayer(S.map, d).addTo(S.map);
+  el('map-dc-count', `${d.length.toLocaleString('pt-BR')} DCs`);
+}
+
+function toggleDcDots(visible) {
+  S.showDcDots = visible;
+  updateMainMapDCs();
+  renderAllMiniMaps();
+}
+
+function updateMapOpacity(val) {
+  S.opacity = parseFloat(val) || 0.75;
+  if (S.mainThemeLayer) {
+    if (S.mainThemeLayer.setStyle) {
+      S.mainThemeLayer.setStyle({ fillOpacity: S.opacity * 0.8, opacity: S.opacity });
+    } else if (S.mainThemeLayer.setOpacity) {
+      S.mainThemeLayer.setOpacity(S.opacity);
+    }
   }
 }
 
-function choropleth(data, thres, colors, label) {
+function searchMapLocation() {
+  const q = document.getElementById('map-search')?.value.trim().toLowerCase();
+  if (!q) return;
+  const dc = S.data.dc.find(r => (r.City && r.City.toLowerCase().includes(q)) || (r.Country && r.Country.toLowerCase().includes(q)) || (r.Name && r.Name.toLowerCase().includes(q)));
+  if (dc && dc.lat && dc.lon) {
+    S.map.flyTo([dc.lat, dc.lon], 9, { duration: 1.5 });
+    toast(`Localizado: ${dc.Name || 'Data Center'} — ${dc.City || ''}, ${dc.Country || ''}`, 'info');
+    return;
+  }
+  const air = S.data.air.find(r => (r.city && r.city.toLowerCase().includes(q)) || (r.country_name && r.country_name.toLowerCase().includes(q)));
+  if (air && air.lat && air.lon) {
+    S.map.flyTo([air.lat, air.lon], 9, { duration: 1.5 });
+    toast(`Localizado: ${air.city || ''}, ${air.country_name || ''}`, 'info');
+    return;
+  }
+  toast(`Nenhum local encontrado para "${q}"`, 'warning');
+}
+
+// ─── THEMATIC MAIN MAP LOGIC ──────────────────────────────────────────────────
+function onMapThemeChange() {
+  const theme = document.getElementById('map-theme')?.value;
+  const subWrap = document.getElementById('map-sub-wrap');
+  const yearWrap = document.getElementById('map-year-wrap');
+  const subSel = document.getElementById('map-sub');
+  const yearSel = document.getElementById('map-year');
+
+  subWrap.style.display = '';
+  yearWrap.style.display = '';
+  subSel.innerHTML = '';
+  yearSel.innerHTML = '';
+
+  if (theme === 'water_base') {
+    subSel.innerHTML = '<option value="Tot">Geral (Total)</option>';
+    yearSel.innerHTML = '<option value="Baseline">Baseline</option>';
+  } else if (theme === 'water_ind') {
+    subSel.innerHTML = '<option value="Industrial">Uso Industrial</option><option value="All Sectors">Todos Setores</option>';
+    yearSel.innerHTML = '<option value="2020 BAU">2020 BAU</option><option value="2030 BAU">2030 BAU</option><option value="2040 BAU">2040 BAU</option>';
+  } else if (theme === 'air_heat') {
+    subSel.innerHTML = '<option value="pm25">PM2.5 (μg/m³)</option><option value="pm10">PM10 (μg/m³)</option><option value="no2">NO₂ (μg/m³)</option>';
+    yearSel.innerHTML = '<option value="all">Todos Anos</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2018">2018</option><option value="2015">2015</option>';
+  } else if (theme === 'energy_gdp') {
+    subSel.innerHTML = '<option value="gdp">% do PIB</option>';
+    yearSel.innerHTML = '<option value="latest">2024 (Recente)</option>';
+  } else if (theme === 'energy_cap') {
+    subSel.innerHTML = '<option value="cap">per capita (USD)</option>';
+    yearSel.innerHTML = '<option value="latest">2024 (Recente)</option>';
+  } else if (theme === 'co2') {
+    subSel.innerHTML = '<option value="val">Total Anual</option>';
+    yearSel.innerHTML = '<option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2020">2020</option><option value="2015">2015</option><option value="2010">2010</option>';
+  } else if (theme === 'ind_carb') {
+    subSel.innerHTML = '<option value="Manufatura">Manufatura</option><option value="Mineração">Mineração</option><option value="Construção">Construção</option>';
+    yearSel.innerHTML = '<option value="latest">Mais recente</option>';
+  } else {
+    subWrap.style.display = 'none';
+    yearWrap.style.display = 'none';
+  }
+
+  updateMainMapTheme();
+}
+
+function updateMainMapTheme() {
+  if (!S.map) return;
+  if (S.mainThemeLayer) {
+    S.map.removeLayer(S.mainThemeLayer);
+    S.mainThemeLayer = null;
+  }
+
+  const theme = document.getElementById('map-theme')?.value;
+  const sub = document.getElementById('map-sub')?.value;
+  const yr = document.getElementById('map-year')?.value;
+  const leg = document.getElementById('main-map-legend');
+
+  if (theme === 'none') {
+    leg.innerHTML = '<strong>Infraestrutura:</strong> Apenas Data Centers ativos.<br><small class="text-muted">Selecione uma camada temática acima para combinar com dados ambientais.</small>';
+    return;
+  }
+
+  if (theme === 'air_heat') {
+    // Heatmap Layer using Leaflet.heat
+    const pol = sub || 'pm25';
+    let data = airFilt().filter(r => r[pol] != null && r.lat && r.lon);
+    if (yr && yr !== 'all') {
+      const targetY = parseInt(yr);
+      data = data.filter(r => r.year === targetY);
+    }
+    const maxVals = { pm25: 65, pm10: 100, no2: 50 };
+    const maxV = maxVals[pol] || 70;
+    const pts = data.map(r => [r.lat, r.lon, Math.min(1.0, (r[pol] || 0) / maxV)]);
+
+    S.mainThemeLayer = L.heatLayer(pts, {
+      radius: 18,
+      blur: 14,
+      maxZoom: 9,
+      minOpacity: 0.35,
+      gradient: { 0.2: '#2dc653', 0.4: '#a8c090', 0.6: '#f0c040', 0.8: '#f08030', 1.0: '#c00000' }
+    }).addTo(S.map);
+
+    leg.innerHTML = `<strong>💨 Qualidade do Ar — ${pol.toUpperCase()} (${pts.length} estações):</strong>
+      <div class="legend-gradient" style="background:linear-gradient(to right, #2dc653, #a8c090, #f0c040, #f08030, #c00000)"></div>
+      <div class="d-flex justify-content-between text-muted" style="font-size:.68rem">
+        <span>0 (Bom)</span><span>${(maxV * 0.4).toFixed(0)}</span><span>${(maxV * 0.7).toFixed(0)}</span><span>${maxV}+ μg/m³</span>
+      </div>`;
+    return;
+  }
+
+  // Choropleth Layers (Water, Energy, CO2, Industry)
+  if (!S.geo) return;
+  const byIso = {};
+  let thres = [], colors = [], label = '', title = '';
+
+  if (theme === 'water_base') {
+    title = '💧 Stress Hídrico Geral (BWS) — Baseline';
+    label = 'Score BWS';
+    thres = [0, 1, 2, 3, 4];
+    colors = ['#cce5ff','#88bbff','#ffc107','#fd7e14','#dc3545'];
+    S.data.aqBase.filter(r => pf(r.score) >= 0 && pf(r.score) <= 5).forEach(r => { byIso[r.gid_0] = pf(r.score) || 0; });
+  } else if (theme === 'water_ind') {
+    const sc = yr || '2020 BAU';
+    const field = sub || 'Industrial';
+    title = `🏭 Stress Hídrico (${field}) — ${sc}`;
+    label = `Score (${field})`;
+    thres = [0, 1, 2, 3, 4];
+    colors = ['#cce5ff','#88bbff','#ffc107','#fd7e14','#dc3545'];
+    (S.data.ws[sc] || []).forEach(r => {
+      const iso = n2iso(cleanLabel(r.Name));
+      if (iso && pf(r[field]) != null && pf(r[field]) >= 0) byIso[iso] = pf(r[field]);
+    });
+  } else if (theme === 'energy_gdp') {
+    title = '⚡ Subsídios Fósseis — % do PIB (IEA 2024)';
+    label = '% do PIB';
+    thres = [0, 1, 2.5, 5, 10];
+    colors = ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'];
+    EMBEDDED.subsidies.forEach(r => { byIso[n2iso(r.country)] = r.pct_gdp; });
+  } else if (theme === 'energy_cap') {
+    title = '⚡ Subsídios Fósseis — per capita (USD)';
+    label = 'USD / hab.';
+    thres = [0, 100, 500, 1000, 2500];
+    colors = ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'];
+    EMBEDDED.subsidies.forEach(r => { byIso[n2iso(r.country)] = r.per_capita_usd; });
+  } else if (theme === 'co2') {
+    const targetY = parseInt(yr) || 2024;
+    title = `🌫️ Emissões Anuais de CO₂ (Gt) — ${targetY}`;
+    label = 'Gt CO₂';
+    thres = [0, 0.05, 0.2, 1.0, 5.0];
+    colors = ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'];
+    S.data.co2.filter(r => r.Year === targetY && r.Code && r.Code.length === 3).forEach(r => {
+      byIso[r.Code] = r.val / 1e9;
+    });
+  } else if (theme === 'ind_carb') {
+    const sec = sub || 'Manufatura';
+    title = `🏭 Intensidade de Carbono — ${sec} (IEA)`;
+    label = 'kgCO₂/USD';
+    thres = [0, 0.1, 0.25, 0.5, 1.0];
+    colors = ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'];
+    EMBEDDED.carbonIntensity.filter(r => r.sector === sec).forEach(r => {
+      if (!byIso[r.iso3] || r.year > (byIso[r.iso3]._y || 0)) {
+        byIso[r.iso3] = r.value;
+      }
+    });
+  }
+
+  S.mainThemeLayer = createChoropleth(byIso, thres, colors, label, S.opacity).addTo(S.map);
+
+  // Update Dynamic Legend
+  let itemsHtml = thres.map((t, i) => {
+    const next = thres[i + 1] !== undefined ? thres[i + 1] : '+';
+    return `<div class="d-inline-flex align-items-center me-2"><span class="legend-chip" style="background:${colors[i]}"></span>${t}${next !== '+' ? '–' + next : '+'}</div>`;
+  }).join('');
+
+  leg.innerHTML = `<strong>${title}:</strong><div class="mt-1">${itemsHtml}</div>`;
+}
+
+function createChoropleth(data, thres, colors, label, opacityVal) {
   const getC = v => {
-    if (v == null) return '#333';
+    if (v == null) return '#222';
     for (let i = thres.length - 1; i >= 0; i--) if (v >= thres[i]) return colors[i] || colors[colors.length - 1];
     return colors[0];
   };
   return L.geoJSON(S.geo, {
-    style: f => ({ fillColor: getC(data[f.properties.ISO_A3 || f.properties.iso_a3]), weight: .5, opacity: .7, color: '#666', fillOpacity: .6 }),
+    style: f => ({
+      fillColor: getC(data[f.properties.ISO_A3 || f.properties.iso_a3]),
+      weight: 0.7,
+      opacity: opacityVal || 0.75,
+      color: '#444',
+      fillOpacity: (opacityVal || 0.75) * 0.8
+    }),
     onEachFeature: (f, l) => {
       const iso = f.properties.ISO_A3 || f.properties.iso_a3;
       const v = data[iso];
-      l.bindTooltip(`${f.properties.ADMIN || iso}: ${v != null ? v.toFixed(2) : 'N/D'} (${label})`);
+      l.bindTooltip(`<b>${f.properties.ADMIN || iso}</b><br>${label}: ${v != null ? Number(v).toFixed(2) : 'Sem dados'}`);
     }
   });
 }
 
-function toggleLayer(k) {
-  S.layers[k] = !S.layers[k];
-  document.getElementById(`bl-${k}`)?.classList.toggle('active', S.layers[k]);
-  renderMapLayers();
+// ─── 4 MINI MAPS RENDER LOGIC ─────────────────────────────────────────────────
+function renderAllMiniMaps() {
+  renderMiniWater();
+  renderMiniAir();
+  renderMiniEnergy();
+  renderMiniCo2();
 }
 
-// ─── AIR QUALITY ─────────────────────────────────────────────────────────────
+function renderMiniWater() {
+  const mini = S.miniMaps['water'];
+  if (!mini || !S.geo) return;
+  if (S.miniLayers['water_theme']) mini.removeLayer(S.miniLayers['water_theme']);
+  if (S.miniLayers['water_dc']) mini.removeLayer(S.miniLayers['water_dc']);
+
+  const scen = document.getElementById('mm-w-scen')?.value || 'base';
+  const byIso = {};
+  if (scen === 'base') {
+    S.data.aqBase.filter(r => pf(r.score) >= 0 && pf(r.score) <= 5).forEach(r => { byIso[r.gid_0] = pf(r.score); });
+  } else {
+    const sheetMap = { ind_2020: '2020 BAU', ind_2030: '2030 BAU', ind_2040: '2040 BAU' };
+    const sh = sheetMap[scen] || '2020 BAU';
+    (S.data.ws[sh] || []).forEach(r => {
+      const iso = n2iso(cleanLabel(r.Name));
+      if (iso && pf(r.Industrial) >= 0) byIso[iso] = pf(r.Industrial);
+    });
+  }
+
+  S.miniLayers['water_theme'] = createChoropleth(byIso, [0, 1, 2, 3, 4], ['#cce5ff','#88bbff','#ffc107','#fd7e14','#dc3545'], 'Stress', 0.75).addTo(mini);
+  if (S.showDcDots) S.miniLayers['water_dc'] = createDcLayer(mini, dcFilt()).addTo(mini);
+  el('mm-water-legend', '<span class="legend-dot" style="background:#dc3545"></span> Crítico (≥4) | <span class="legend-dot" style="background:#ffc107"></span> Médio (2-3) | <span class="legend-dot" style="background:#0dcaf0"></span> DCs');
+}
+
+function renderMiniAir() {
+  const mini = S.miniMaps['air'];
+  if (!mini) return;
+  if (S.miniLayers['air_theme']) mini.removeLayer(S.miniLayers['air_theme']);
+  if (S.miniLayers['air_dc']) mini.removeLayer(S.miniLayers['air_dc']);
+
+  const pol = document.getElementById('mm-air-pol')?.value || 'pm25';
+  const yr = document.getElementById('mm-air-yr')?.value || 'all';
+  let data = airFilt().filter(r => r[pol] != null && r.lat && r.lon);
+  if (yr !== 'all') data = data.filter(r => r.year === parseInt(yr));
+
+  const maxVals = { pm25: 65, pm10: 100, no2: 50 };
+  const maxV = maxVals[pol] || 70;
+  const pts = data.map(r => [r.lat, r.lon, Math.min(1.0, (r[pol] || 0) / maxV)]);
+
+  S.miniLayers['air_theme'] = L.heatLayer(pts, {
+    radius: 14, blur: 12, maxZoom: 8, minOpacity: 0.35,
+    gradient: { 0.2: '#2dc653', 0.4: '#a8c090', 0.6: '#f0c040', 0.8: '#f08030', 1.0: '#c00000' }
+  }).addTo(mini);
+
+  if (S.showDcDots) S.miniLayers['air_dc'] = createDcLayer(mini, dcFilt()).addTo(mini);
+  el('mm-air-legend', `<span class="legend-dot" style="background:#c00000"></span> Alto ${pol.toUpperCase()} | <span class="legend-dot" style="background:#2dc653"></span> Baixo | <span class="legend-dot" style="background:#0dcaf0"></span> DCs`);
+}
+
+function renderMiniEnergy() {
+  const mini = S.miniMaps['energy'];
+  if (!mini || !S.geo) return;
+  if (S.miniLayers['energy_theme']) mini.removeLayer(S.miniLayers['energy_theme']);
+  if (S.miniLayers['energy_dc']) mini.removeLayer(S.miniLayers['energy_dc']);
+
+  const type = document.getElementById('mm-en-type')?.value || 'gdp';
+  const byIso = {};
+  let thres = [0, 1, 2.5, 5, 10], label = '% PIB';
+  if (type === 'cap') {
+    thres = [0, 100, 500, 1000, 2500];
+    label = 'USD / hab';
+    EMBEDDED.subsidies.forEach(r => { byIso[n2iso(r.country)] = r.per_capita_usd; });
+  } else {
+    EMBEDDED.subsidies.forEach(r => { byIso[n2iso(r.country)] = r.pct_gdp; });
+  }
+
+  S.miniLayers['energy_theme'] = createChoropleth(byIso, thres, ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'], label, 0.75).addTo(mini);
+  if (S.showDcDots) S.miniLayers['energy_dc'] = createDcLayer(mini, dcFilt()).addTo(mini);
+  el('mm-energy-legend', `<span class="legend-dot" style="background:#dc3545"></span> Alto Subsídio | <span class="legend-dot" style="background:#198754"></span> Baixo | <span class="legend-dot" style="background:#0dcaf0"></span> DCs`);
+}
+
+function renderMiniCo2() {
+  const mini = S.miniMaps['co2'];
+  if (!mini || !S.geo) return;
+  if (S.miniLayers['co2_theme']) mini.removeLayer(S.miniLayers['co2_theme']);
+  if (S.miniLayers['co2_dc']) mini.removeLayer(S.miniLayers['co2_dc']);
+
+  const yr = parseInt(document.getElementById('mm-co2-yr')?.value) || 2024;
+  const byIso = {};
+  S.data.co2.filter(r => r.Year === yr && r.Code && r.Code.length === 3).forEach(r => {
+    byIso[r.Code] = r.val / 1e9;
+  });
+
+  S.miniLayers['co2_theme'] = createChoropleth(byIso, [0, 0.05, 0.2, 1.0, 5.0], ['#198754','#ffc107','#fd7e14','#dc3545','#6610f2'], 'Gt CO₂', 0.75).addTo(mini);
+  if (S.showDcDots) S.miniLayers['co2_dc'] = createDcLayer(mini, dcFilt()).addTo(mini);
+  el('mm-co2-legend', `<span class="legend-dot" style="background:#dc3545"></span> Emissão Alta | <span class="legend-dot" style="background:#198754"></span> Baixa | <span class="legend-dot" style="background:#0dcaf0"></span> DCs`);
+}
+
+// ─── AIR QUALITY TAB ─────────────────────────────────────────────────────────
 function renderAirCards() {
   const d = airFilt();
   const p25 = d.filter(r => r.pm25 != null), p10 = d.filter(r => r.pm10 != null);
@@ -932,7 +1428,7 @@ function setAirMetric(m, btn) {
   renderAirTop();
 }
 
-// ─── WATER STRESS ─────────────────────────────────────────────────────────────
+// ─── WATER STRESS TAB ────────────────────────────────────────────────────────
 function renderWaterCards() {
   const reg = document.getElementById('f-region')?.value;
   let src = S.data.aqBase.filter(r => pf(r.score) >= 0 && pf(r.score) <= 5);
@@ -1107,7 +1603,7 @@ function drawAquastat() {
   drawScatter('c-aq-scatter', pts, 'Eficiência Industrial (US$/m³)', 'Data Centers', 'rgba(13,110,253,.5)');
 }
 
-// ─── DATA CENTERS ─────────────────────────────────────────────────────────────
+// ─── DATA CENTERS TAB ─────────────────────────────────────────────────────────
 function renderDcCards() {
   const d = dcFilt();
   el('dc-total', d.length.toLocaleString('pt-BR'));
@@ -1171,7 +1667,7 @@ function renderDcPUE() {
   drawBar('c-dc-pue', labels, vals, 'PUE 2024', labels.map(r => { const v = cap.pue[r] ? cap.pue[r][2] : 0; return v <= 1.3 ? '#198754' : v <= 1.5 ? '#ffc107' : '#dc3545'; }), false);
 }
 
-// ─── ENERGIA & SUBSÍDIOS ─────────────────────────────────────────────────────
+// ─── ENERGIA & SUBSÍDIOS TAB ──────────────────────────────────────────────────
 function renderEnergyCards() {
   const sub = EMBEDDED.subsidies;
   if (!sub.length) return;
@@ -1244,7 +1740,7 @@ function renderEnDcScenarios() {
   });
 }
 
-// ─── CO2 ─────────────────────────────────────────────────────────────────────
+// ─── CO2 TAB ─────────────────────────────────────────────────────────────────
 function renderCo2() {
   const d = S.data.co2;
   if (!d.length) return;
@@ -1294,7 +1790,7 @@ function drawCo2Top() {
   );
 }
 
-// ─── INDÚSTRIA ────────────────────────────────────────────────────────────────
+// ─── INDÚSTRIA TAB ────────────────────────────────────────────────────────────
 function renderIndustry() {
   const sector = document.getElementById('ind-sector')?.value || 'Manufatura';
   const reg = document.getElementById('f-region')?.value;
@@ -1365,7 +1861,7 @@ function renderIndTimeSeries() {
   });
 }
 
-// ─── CORRELAÇÕES ─────────────────────────────────────────────────────────────
+// ─── CORRELAÇÕES TAB ─────────────────────────────────────────────────────────
 function renderCorr() {
   const idx = buildIdx();
   const dw = Object.values(idx).filter(r => r.dc > 0 && r.wsInd != null).map(r => ({ x: r.dc, y: r.wsInd, label: r.name }));
@@ -1434,7 +1930,7 @@ async function genCorrInsight() {
   } catch (e) { e2.textContent = 'Erro: ' + e.message; }
 }
 
-// ─── COMPARAÇÃO / RANK ────────────────────────────────────────────────────────
+// ─── COMPARAÇÃO / RANK TAB ───────────────────────────────────────────────────
 function buildRank() {
   const idx = buildIdx();
   const carbMap = {};
@@ -1521,7 +2017,7 @@ function drawRadar() {
   });
 }
 
-// ─── CHAT ────────────────────────────────────────────────────────────────────
+// ─── CHAT TAB ────────────────────────────────────────────────────────────────
 async function sendMsg() {
   const inp = document.getElementById('chat-in'); const msg = inp.value.trim(); if (!msg) return;
   inp.value = ''; addMsg('user', msg);
@@ -1558,7 +2054,7 @@ async function gemini(prompt) {
   const d = await r.json(); return d.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.';
 }
 
-// ─── DATA INDEX ──────────────────────────────────────────────────────────────
+// ─── DATA INDEX & SUMMARY ─────────────────────────────────────────────────────
 function buildIdx() {
   const idx = {};
   const reg = document.getElementById('f-region')?.value;
@@ -1638,7 +2134,12 @@ function applyFilters() {
   renderWaterCards(); renderWaterBase(); renderWaterCat(); drawIndustrial();
   renderIndustry(); drawCo2Top();
   renderSubCap(); renderSubGdp();
-  renderCorr(); buildRank(); renderRank(); renderMapLayers(); updateCounts();
+  renderCorr(); buildRank(); renderRank();
+  
+  updateMainMapDCs();
+  updateMainMapTheme();
+  renderAllMiniMaps();
+  updateCounts();
 }
 
 function resetFilters() {
@@ -1841,10 +2342,13 @@ function n2iso(name) {
   return ISO3[clean] || ISO3[name.trim()] || (clean.length >= 3 ? clean.substring(0, 3).toUpperCase() : 'UNK');
 }
 
-// ─── TAB SWITCH EVENTS ────────────────────────────────────────────────────────
+// ─── TAB SWITCH & RESIZE EVENTS ───────────────────────────────────────────────
 document.addEventListener('shown.bs.tab', e => {
   const href = e.target.getAttribute('href');
-  if (href === '#tab-map' && S.map) S.map.invalidateSize();
+  if (href === '#tab-map') {
+    if (S.map) S.map.invalidateSize();
+    Object.values(S.miniMaps).forEach(m => { if (m) m.invalidateSize(); });
+  }
   if (href === '#w-industrial') drawIndustrial();
   if (href === '#tab-industry') renderIndustry();
   if (href === '#tab-energy') { renderSubCap(); renderSubGdp(); }
