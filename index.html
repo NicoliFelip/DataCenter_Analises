@@ -39,6 +39,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
 select[multiple]{min-height:88px;font-size:.83rem}
 .ms-hint{font-size:.7rem;color:var(--bs-secondary-color)}
 .sort-btn{font-size:.75rem;padding:.2rem .5rem}
+/* Tooltips & Popups always on top of markers */
+.leaflet-tooltip-pane { z-index: 1000 !important; }
+.leaflet-popup-pane { z-index: 1100 !important; }
+.leaflet-tooltip {
+  z-index: 1000 !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  font-size: 0.82rem !important;
+  pointer-events: none !important;
+}
+
 /* Map Styling */
 .map-ctrl-bar{background:var(--bs-body-tertiary);border-bottom:1px solid var(--bs-border-color);padding:.6rem .85rem;border-radius:.375rem .375rem 0 0}
 .map-legend-box{font-size:.75rem;padding:.4rem .75rem;border-radius:.375rem;background:rgba(22,27,34,.88);border:1px solid rgba(255,255,255,.15);box-shadow:0 4px 12px rgba(0,0,0,.3)}
@@ -130,7 +141,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-corr">📈 Correlações</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rank">🏆 Comparação</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sources">📚 Fontes</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-chat">🤖 Chat IA</a></li>
+  <li class="nav-item" style="display:none !important;"><a class="nav-link" data-bs-toggle="tab" href="#tab-chat">🤖 Chat IA</a></li>
 </ul>
 <div class="tab-content">
 
@@ -315,9 +326,19 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-air-top"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Compara as concentrações médias anuais ponderadas por país para poluentes atmosféricos críticos monitorados pela OMS: Material Particulado Fino (PM2.5 ≤ 2.5 μm, diretriz anual OMS: 5 μg/m³), Particulado Inalável (PM10 ≤ 10 μm, diretriz: 15 μg/m³) e Dióxido de Nitrogênio (NO₂, diretriz: 10 μg/m³), mensurados em μg/m³. Ordenação linear estritamente decrescente (ou ascendente) com barra de rolagem vertical contemplando todas as entidades monitoradas.
+      </p>
+    </div>
       </div>
     </div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-header">PM2.5 × NO₂ por País</div><div class="card-body"><canvas id="c-air-scatter"></canvas></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-header">PM2.5 × NO₂ por País</div><div class="card-body"><canvas id="c-air-scatter"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Diagrama de dispersão bivariada analisando a co-ocorrência espacial entre Material Particulado Fino e Dióxido de Nitrogênio em escala nacional. Eixo X: concentração média de PM2.5 (μg/m³), indicador primário de queima difusa de biomassa e combustíveis fósseis. Eixo Y: concentração média de NO₂ (μg/m³), marcador direto de emissões veiculares urbanas e usinas termelétricas industriais. Países no quadrante superior direito enfrentam sobrecarga atmosférica mista severa.
+      </p>
+    </div></div></div>
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex justify-content-between flex-wrap gap-2">
@@ -361,9 +382,19 @@ select[multiple]{min-height:88px;font-size:.83rem}
             <div class="card-body p-2">
               <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-w-base"></canvas></div></div>
             </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Quantifica o Baseline Water Stress (BWS) do WRI Aqueduct 4.0 para todos os 164 países catalogados. O escore adimensional (0.0 a 5.0) expressa a razão entre a demanda total de captação de água doce consuntiva (setores doméstico, agrícola e industrial) e a disponibilidade renovável superficial e subterrânea média histórica. Faixas de vulnerabilidade: Baixo (&lt;10% de retirada, escore &lt;1.0), Médio (10–20%, 1.0–2.0), Médio-Alto (20–40%, 2.0–3.0), Alto (40–80%, 3.0–4.0) e Extremamente Alto (&gt;80%, 4.0–5.0).
+      </p>
+    </div>
           </div>
         </div>
-        <div class="col-md-4"><div class="card h-100"><div class="card-header">🍩 Distribuição por Categoria</div><div class="card-body"><canvas id="c-w-cat"></canvas></div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-header">🍩 Distribuição por Categoria</div><div class="card-body"><canvas id="c-w-cat"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Distribuição percentual e absoluta dos 164 países monitorados pelas faixas normativas de vulnerabilidade de estresse hídrico do WRI Aqueduct 4.0. Evidencia que parcela substancial das nações do globo já opera sob estresse hídrico elevado ou extremo (escores ≥ 3.0), condição em que novas demandas industriais de refrigeração evaporativa de infraestrutura de TI concorrem diretamente com o consumo humano e a produção de alimentos.
+      </p>
+    </div></div></div>
       </div>
     </div>
     <div class="tab-pane fade" id="w-industrial">
@@ -389,9 +420,19 @@ select[multiple]{min-height:88px;font-size:.83rem}
             <div class="card-body p-2">
               <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-w-ind"></canvas></div></div>
             </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Projeção multivariada de estresse hídrico decorrente exclusivamente do setor industrial para os anos-base de 2020, 2030 e 2040, modelada segundo as trajetórias socioeconômicas e climáticas combinadas SSP/IPCC (SSP2-4.5 BAU, SSP1-2.6 Otimista e SSP3-8.5 Pessimista). O escore (0 a 5) avalia a severidade das restrições hidrológicas para plantas com resfriamento térmico evaporativo e trocadores de calor.
+      </p>
+    </div>
           </div>
         </div>
-        <div class="col-md-5"><div class="card h-100"><div class="card-header">Industrial × Total (2020 BAU)</div><div class="card-body"><canvas id="c-w-ind-vs"></canvas></div></div></div>
+        <div class="col-md-5"><div class="card h-100"><div class="card-header">Industrial × Total (2020 BAU)</div><div class="card-body"><canvas id="c-w-ind-vs"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Diagrama bivariado correlacionando o Estresse Hídrico do Setor Industrial (eixo Y) com o Estresse Hídrico Agregado de Todos os Setores (eixo X) no cenário 2020 BAU. Permite isolar economias onde a manufatura e o setor secundário exercem pressão desproporcional sobre a bacia hidrográfica frente à demanda agropecuária e municipal.
+      </p>
+    </div></div></div>
       </div>
     </div>
     <div class="tab-pane fade" id="w-aquastat">
@@ -415,9 +456,19 @@ select[multiple]{min-height:88px;font-size:.83rem}
             <div class="card-body p-2">
               <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-aq-bar"></canvas></div></div>
             </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Indicadores oficiais da base AQUASTAT da FAO atrelados às metas dos Objetivos de Desenvolvimento Sustentável das Nações Unidas: Eficiência no Uso da Água no Setor Industrial (ODS 6.4.1, mensurada pelo Valor Adicionado Bruto em USD gerado por metro cúbico retirado, US$/m³) e Nível de Estresse Hídrico Setorial (ODS 6.4.2, proporção percentual da captação consuntiva frente aos recursos renováveis sustentáveis, %).
+      </p>
+    </div>
           </div>
         </div>
-        <div class="col-md-4"><div class="card"><div class="card-header">🏢 DCs × Eficiência Industrial (AQUASTAT)</div><div class="card-body"><canvas id="c-aq-scatter"></canvas></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-header">🏢 DCs × Eficiência Industrial (AQUASTAT)</div><div class="card-body"><canvas id="c-aq-scatter"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão bivariada entre a eficiência econômica da água na indústria (FAO ODS 6.4.1 em US$/m³, eixo X) e o número absoluto de data centers comerciais instalados (eixo Y). Avalia se os grandes nós de computação em nuvem operam em economias com processos industriais e sistemas hídricos tecnologicamente eficientes e resilientes.
+      </p>
+    </div></div></div>
       </div>
     </div>
     <div class="tab-pane fade" id="w-future">
@@ -432,8 +483,18 @@ select[multiple]{min-height:88px;font-size:.83rem}
         </div>
       </div>
       <div class="row g-3">
-        <div class="col-md-8"><div class="card"><div class="card-header">📈 Evolução 2020→2030→2040 por cenário</div><div class="card-body"><canvas id="c-w-future"></canvas></div></div></div>
-        <div class="col-md-4"><div class="card"><div class="card-header">🔻 Top 10 Maior Deterioração Industrial (BAU)</div><div class="card-body"><canvas id="c-w-worst"></canvas></div></div></div>
+        <div class="col-md-8"><div class="card"><div class="card-header">📈 Evolução 2020→2030→2040 por cenário</div><div class="card-body"><canvas id="c-w-future"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Evolução temporal das trajetórias de vulnerabilidade hídrica entre 2020, 2030 e 2040 para países selecionados sob cenários climáticos alternativos do CMIP5/IPCC. Eixo Y quantifica o escore de estresse hídrico projetado (0 a 5), permitindo comparar a divergência entre a inação climática (Pessimista/BAU) e medidas ativas de conservação (Otimista).
+      </p>
+    </div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-header">🔻 Top 10 Maior Deterioração Industrial (BAU)</div><div class="card-body"><canvas id="c-w-worst"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Taxa de variação absoluta projetada (Δ = Score 2040 − Score 2020) no estresse hídrico industrial sob o cenário BAU. O gráfico elenca os 10 territórios soberanos com a deterioração hidrológica mais drástica nas próximas duas décadas, sinalizando áreas de alto risco operacional para projetos eletrointensivos que dependem de outorgas de água substanciais.
+      </p>
+    </div></div></div>
       </div>
     </div>
   </div>
@@ -458,12 +519,42 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-dc-country"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Distribuição geográfica absoluta de 6.131 data centers comerciais, de colocation e hiperescala registrados globalmente. As barras ilustram a contagem de instalações por país em ordem decrescente com suporte à navegação vertical integral, retratando a extrema concentração espacial das operações digitais globais (notadamente nos EUA, União Europeia e centros financeiros asiáticos).
+      </p>
+    </div>
       </div>
     </div>
-    <div class="col-md-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>⚡ Capacidade Instalada por Região (GW) — IEA 2024</span><button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-dc-gw" onclick="toggleChartSort('c-dc-gw', renderDcGW)">⬇️ Maior → Menor</button></div><div class="card-body"><canvas id="c-dc-gw"></canvas></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">📈 Capacidade Mundial por Cenário (GW) — IEA</div><div class="card-body"><canvas id="c-dc-scenario"></canvas></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">🔋 Eficiência Energética (PUE Médio) por Região (2024)</div><div class="card-body"><canvas id="c-dc-pue"></canvas></div></div></div>
-    <div class="col-md-5"><div class="card h-100"><div class="card-header">🏭 Por Empresa — Top 10</div><div class="card-body"><canvas id="c-dc-company"></canvas></div></div></div>
+    <div class="col-md-6"><div class="card h-100"><div class="card-header d-flex justify-content-between align-items-center"><span>⚡ Capacidade Instalada por Região (GW) — IEA 2024</span><button class="btn btn-outline-secondary btn-sm sort-btn" id="btn-sort-c-dc-gw" onclick="toggleChartSort('c-dc-gw', renderDcGW)">⬇️ Maior → Menor</button></div><div class="card-body"><canvas id="c-dc-gw"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Capacidade elétrica instalada em Gigawatts (GW = 10⁹ W) compilada pela Agência Internacional de Energia (IEA Energy and AI Annex 2024). Representa o dimensionamento de potência conectada para servidores, aceleração gráfica (GPUs), refrigeração e sistemas auxiliares ininterruptos por bloco regional, disposta em ordem estritamente linear decrescente com botão seletor de ordenação.
+      </p>
+    </div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">📈 Capacidade Mundial por Cenário (GW) — IEA</div><div class="card-body"><canvas id="c-dc-scenario"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Série temporal e projeções globais de demanda de potência elétrica agregada de data centers (em GW, IEA 2024). Modela o crescimento da carga global de 97 GW em 2024 até 226 GW em 2030 no Cenário Base e trajetórias aceleradas impulsionadas pela corrida tecnológica de infraestrutura de inteligência artificial generativa.
+      </p>
+    </div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">🔋 Eficiência Energética (PUE Médio) por Região (2024)</div><div class="card-body"><canvas id="c-dc-pue"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Distribuição do índice de Eficiência de Uso de Energia (Power Usage Effectiveness - PUE = Energia Total da Instalação / Energia Efetiva dos Equipamentos de TI). PUE = 1.0 expressa a perfeição teórica sem perdas parasitas. Instalações de hiperescala modernas operam entre 1.15 e 1.25 via resfriamento líquido ou free-cooling, enquanto centros de processamento legados excedem 1.50 decorrente de dissipação térmica ineficiente.
+      </p>
+    </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Indicador de Eficiência Energética de Instalações (Power Usage Effectiveness - PUE = Energia Total / Energia de TI). PUE = 1.0 indica ausência teórica de perdas auxiliares. Valores de 1.15 a 1.25 caracterizam plantas hiperscaláveis com resfriamento a líquido ou free-cooling; valores superiores a 1.50 refletem perdas significativas em sistemas legados.
+      </p>
+    </div></div></div>
+    <div class="col-md-5"><div class="card h-100"><div class="card-header">🏭 Por Empresa — Top 10</div><div class="card-body"><canvas id="c-dc-company"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Participação e volume de infraestrutura física entre os principais operadores globais de data centers comerciais (multitenant colocation e provedores de nuvem hiperescaláveis). Quantifica a densidade patrimonial e a centralização corporativa na infraestrutura física que sustenta os serviços globais de internet.
+      </p>
+    </div></div></div>
     <div class="col-md-7">
       <div class="card">
         <div class="card-header d-flex justify-content-between flex-wrap gap-2">
@@ -503,6 +594,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
           </div>
         </div>
         <div class="card-body"><canvas id="c-sub-global"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Série histórica (2010–2024) do montante total de subsídios governamentais destinados a baratear combustíveis fósseis no mundo (em bilhões de USD correntes, IEA). O gráfico desagrega o apoio financeiro estatal entre as matrizes energéticas primárias: Petróleo, Gás Natural, Carvão Mineral e Geração Termelétrica Fóssil.
+      </p>
+    </div>
       </div>
     </div>
     <div class="col-md-4">
@@ -514,6 +610,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-sub-cap"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Subsídios a combustíveis fósseis da IEA divididos pelo contingente populacional residente de cada país, expressos em dólares norte-americanos por habitante (USD/hab.). Mede a intensidade per capita de incentivos estatais que reduzem artificialmente o preço final de hidrocarbonetos e eletricidade de origem térmica fóssil.
+      </p>
+    </div>
       </div>
     </div>
     <div class="col-md-6">
@@ -525,10 +626,20 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-sub-gdp"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Compromisso orçamentário nacional em subsídios a combustíveis fósseis expresso como proporção percentual do Produto Interno Bruto (% do PIB, IEA 2024). Valores elevados revelam distorções estruturais de mercado que retardam a transição energética e favorecem a instalação de cargas elétricas massivas sob matrizes poluentes subsidiadas.
+      </p>
+    </div>
       </div>
     </div>
     <div class="col-md-6"><div class="card"><div class="card-header">⚡ Capacidade DC por Região — Projeção IEA (GW)</div>
       <div class="card-body"><canvas id="c-en-dc-scenarios"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Projeções de consumo elétrico regionalizado de data centers (em GW e TWh, IEA 2024). Ilustra a expansão da demanda de carga de base que pressionará o equilíbrio operacional e a capacidade de transmissão das redes elétricas da América do Norte, Europa e Ásia-Pacífico até 2030.
+      </p>
+    </div>
       <div class="card-footer text-muted" style="font-size:.75rem">Cenários de crescimento da demanda energética por inteligência artificial e data centers (IEA 2024).</div>
     </div></div>
   </div>
@@ -550,6 +661,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <select class="form-select form-select-sm" style="width:auto" id="co2-sel" onchange="drawCo2Line()"><option value="World">Mundial</option></select>
         </div>
         <div class="card-body"><canvas id="c-co2-line"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Trajetória temporal contínua das emissões territoriais anuais de dióxido de carbono fóssil (2010–2024) mensuradas em Gigatoneladas (Gt CO₂ = 10⁹ toneladas) pelo Global Carbon Project e Our World in Data. Permite avaliar a evolução da pegada de carbono para o agregado mundial ou entidades nacionais específicas.
+      </p>
+    </div>
       </div>
     </div>
     <div class="col-md-5">
@@ -561,6 +677,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-co2-top"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Ranking dos maiores emissores nacionais brutos de CO₂ fóssil no ano de referência mais recente (Gt CO₂, GCP). Apresentado com rolagem vertical para visualização de todos os países catalogados, evidenciando o papel preponderante das grandes potências industrializadas na geração de gases de efeito estufa.
+      </p>
+    </div>
       </div>
     </div>
   </div>
@@ -600,10 +721,25 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div class="card-body p-2">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-ind-top"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Intensidade média de emissão de carbono do setor industrial compilada pela IEA, expressa em quilogramas de CO₂ emitidos por dólar de Valor Adicionado Bruto Industrial ponderado por Paridade de Poder de Compra (kg CO₂ / USD PPP). Permite comparar a eficiência climática e a descarbonização de parques fabris nacionais independentemente do volume total do PIB.
+      </p>
+    </div>
       </div>
     </div>
-    <div class="col-md-6"><div class="card"><div class="card-header">📈 Evolução Temporal por País (2015–2021)</div><div class="card-body"><canvas id="c-ind-ts"></canvas></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">🔗 Intensidade de Carbono (Manufatura) × PM2.5</div><div class="card-body"><canvas id="c-ind-pm25"></canvas></div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">📈 Evolução Temporal por País (2015–2021)</div><div class="card-body"><canvas id="c-ind-ts"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Série temporal multianual (2015–2021) da intensidade de carbono desagregada por subsetor econômico: Manufatura (ISIC C), Mineração/Extração (ISIC B) e Construção Civil (ISIC F). Monitora se a eficiência climática industrial do país está progredindo tecnologicamente ou em trajetória regressiva.
+      </p>
+    </div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">🔗 Intensidade de Carbono (Manufatura) × PM2.5</div><div class="card-body"><canvas id="c-ind-pm25"></canvas></div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão bivariada correlacionando a intensidade de carbono do setor de manufatura (kg CO₂/USD PPP, eixo X) com a concentração urbana média de material particulado fino (PM2.5 em μg/m³, eixo Y). Testa empiricamente a correlação entre a obsolescência tecnológica da matriz industrial e os índices locais de poluição atmosférica prejudicial à saúde.
+      </p>
+    </div></div></div>
   </div>
 </div>
 
@@ -615,10 +751,10 @@ select[multiple]{min-height:88px;font-size:.83rem}
     <button class="btn btn-sm btn-outline-info mt-2" onclick="genCorrInsight()"><i class="bi bi-lightning me-1"></i>Gerar Análise com IA</button>
   </div>
   <div class="row g-3">
-    <div class="col-md-6"><div class="card"><div class="card-header">🏢 DCs × 💧 Stress Hídrico Industrial</div><div class="card-body"><canvas id="c-corr-dw"></canvas></div><div class="card-footer text-muted small" id="note-dw"></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">🏢 DCs × 💨 PM2.5 Médio</div><div class="card-body"><canvas id="c-corr-da"></canvas></div><div class="card-footer text-muted small" id="note-da"></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">🏭 Intensidade de Carbono × 💧 Stress Industrial</div><div class="card-body"><canvas id="c-corr-cw"></canvas></div><div class="card-footer text-muted small" id="note-cw"></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">⚡ Subsídio Fóssil/PIB (%) × 💨 PM2.5</div><div class="card-body"><canvas id="c-corr-sp"></canvas></div><div class="card-footer text-muted small" id="note-sp"></div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">🏢 DCs × 💧 Stress Hídrico Industrial</div><div class="card-body"><canvas id="c-corr-dw"></canvas></div><div class="card-footer bg-body-tertiary border-top py-2 px-3"><div class="fw-semibold text-info small mb-1" id="note-dw"></div><p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45"><i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão e Coeficiente de Correlação de Pearson (r) entre a contagem territorial de Data Centers (eixo X) e o Baseline Water Stress (BWS 0–5 do WRI, eixo Y). Investiga empiricamente se os centros de processamento de dados estão situados preferencialmente em bacias com segurança hídrica ou em regiões vulneráveis à escassez.</p></div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">🏢 DCs × 💨 PM2.5 Médio</div><div class="card-body"><canvas id="c-corr-da"></canvas></div><div class="card-footer bg-body-tertiary border-top py-2 px-3"><div class="fw-semibold text-info small mb-1" id="note-da"></div><p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45"><i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão e Coeficiente de Correlação de Pearson (r) entre a densidade de Data Centers (eixo X) e a concentração média de Particulado Fino Urbano (PM2.5 em μg/m³ da OMS, eixo Y). Analisa a sobreposição espacial entre nós de conectividade de dados e aglomerações urbanas afetadas por poluição atmosférica veicular e industrial.</p></div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">🏭 Intensidade de Carbono × 💧 Stress Industrial</div><div class="card-body"><canvas id="c-corr-cw"></canvas></div><div class="card-footer bg-body-tertiary border-top py-2 px-3"><div class="fw-semibold text-info small mb-1" id="note-cw"></div><p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45"><i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão e Coeficiente de Correlação de Pearson (r) entre as emissões anuais brutas de CO₂ fóssil (Gt CO₂, eixo X) e o escore de estresse hídrico BWS (eixo Y). Avalia a co-ocorrência em escala macroeconômica entre altas cargas de emissão de carbono e estresse hídrico superficial e subterrâneo.</p></div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">⚡ Subsídio Fóssil/PIB (%) × 💨 PM2.5</div><div class="card-body"><canvas id="c-corr-sp"></canvas></div><div class="card-footer bg-body-tertiary border-top py-2 px-3"><div class="fw-semibold text-info small mb-1" id="note-sp"></div><p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45"><i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Dispersão e Coeficiente de Correlação de Pearson (r) entre a proporção de Subsídios Fósseis no PIB (% do PIB, eixo X) e a concentração urbana de PM2.5 (μg/m³, eixo Y). Avalia se regimes fiscais com altos incentivos a derivados de petróleo e carvão fomentam níveis mais severos de poluição atmosférica particulada nas cidades.</p></div></div></div>
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -640,6 +776,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
         <div id="risk-chart-view" class="card-body p-2" style="display:none">
           <div class="chart-scroll-box"><div class="chart-inner-wrap" style="position:relative;width:100%"><canvas id="c-risk-bar"></canvas></div></div>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Índice Composto de Risco Socioambiental e Pressão Digital normalizado no intervalo [0, 100%]. O modelo multicritério pondera escores-z padronizados: Densidade de Data Centers (30%), Vulnerabilidade de Estresse Hídrico Industrial (30%), Poluição Particulada PM2.5 (25%) e Intensidade de Subsídios Fósseis (% do PIB, 15%). As barras ordenadas destacam os territórios com confluência crítica de fatores de risco.
+      </p>
+    </div>
       </div>
     </div>
   </div>
@@ -671,6 +812,11 @@ select[multiple]{min-height:88px;font-size:.83rem}
           <button class="btn btn-sm btn-primary w-100 mb-3" onclick="drawRadar()">Comparar no Radar</button>
           <canvas id="c-radar"></canvas>
         </div>
+    <div class="card-footer bg-body-tertiary border-top py-2 px-3">
+      <p class="chart-desc text-muted mb-0" style="font-size:0.75rem;line-height:1.45">
+        <i class="bi bi-info-circle me-1 text-primary"></i><strong>Nota Metodológica &amp; Variáveis:</strong> Gráfico de radar multidimensional com eixos parametrizados em escores normalizados por percentil [0, 100%]. Compara simultaneamente o perfil de até 5 países selecionados sob 5 dimensões ambientais e de infraestrutura: Infraestrutura de Data Centers, Estresse Hídrico Geral (BWS), Estresse Hídrico Industrial (cenários WRI), Concentração de PM2.5 e Intensidade de Carbono Industrial.
+      </p>
+    </div>
       </div>
     </div>
   </div>
@@ -702,28 +848,35 @@ select[multiple]{min-height:88px;font-size:.83rem}
       </div>
     </div>
     <div class="col-md-6">
-      <div class="card">
-        <div class="card-header text-warning"><i class="bi bi-exclamation-triangle me-2"></i>Limitações Metodológicas e Avisos</div>
-        <div class="card-body">
-          <ul class="small mb-0">
-            <li><strong>Contagem de DCs:</strong> representa um snapshot estático — não possui série temporal de quantidade histórica.</li>
-            <li><strong>Qualidade do Ar:</strong> médias agregadas das cidades monitoradas por país, sem ponderação demográfica direta.</li>
-            <li><strong>Capacidade de DC (IEA):</strong> valores em GW representam capacidade instalada projetada, não consumo elétrico instantâneo.</li>
-            <li><strong>Cobertura de Países:</strong> varia conforme a base (Subsídios = 47 países, Indústria = 39 a 78 países, Aqueduct = 160+ países).</li>
-            <li><strong>Correlação não implica causalidade:</strong> relações estatísticas em gráficos de dispersão indicam associações exploratórias, e não relação direta de causa e efeito.</li>
-            <li><strong>Stress Hídrico Industrial:</strong> mensura a pressão sobre os recursos hídricos por toda a atividade industrial da região, não exclusivamente data centers.</li>
+      <div class="card h-100">
+        <div class="card-header text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Limitações Metodológicas e Avisos Científicos</div>
+        <div class="card-body small" style="line-height:1.6">
+          <ul class="mb-0 ps-3">
+            <li><strong>Interpolação Espacial dos Mapas de Calor:</strong> A superfície térmica contínua apresentada nos mapas utiliza algoritmo radial de densidade (Leaflet.heat) ancorado em grade geodésica regular de 2.0° associada às coordenadas pontuais reais (7.182 estações OMS e 6.131 DCs). Destina-se à visualização de gradientes macrorregionais contínuos, não devendo ser interpretada como medição microclimática local pontual.</li>
+            <li><strong>Natureza Cadastral dos Data Centers:</strong> O dataset de 6.131 data centers representa um inventário global consolidado de instalações comerciais, de colocation e hiperescala ativas. A capacidade de potência (GW) e indicadores de PUE provêm de agregações macroeconômicas da Agência Internacional de Energia (IEA), não correspondendo ao consumo elétrico instantâneo monitorado em tempo real por medidor individual.</li>
+            <li><strong>Falácia Ecológica e Heterogeneidade Intranacional:</strong> A agregação de variáveis em nível nacional ou regional (como o BWS do WRI Aqueduct e médias de poluentes da OMS) pode mascarar acentuadas disparidades subnacionais. A localização de data centers em determinado país com elevado estresse hídrico médio não implica que todas as instalações estejam situadas em bacias hidrográficas sob escassez.</li>
+            <li><strong>Correlação Estatística vs. Causalidade:</strong> Os coeficientes de correlação linear de Pearson (r) reportados nos gráficos de dispersão mensuram graus de associação bivariada exploratória. A presença de correlação não estabelece nexo causal direto, exigindo modelos econométricos multivariados com controle de densidade populacional, PIB per capita e matriz produtiva.</li>
+            <li><strong>Estresse Hídrico Industrial (WRI / IPCC):</strong> As métricas projetadas (2020–2040) refletem a pressão hídrica gerada pelo conjunto da atividade industrial da economia segundo os cenários SSP/RCP, e não a demanda de consumo hídrico atribuível exclusivamente aos data centers.</li>
+            <li><strong>Assincronia Temporal das Fontes:</strong> Os horizontes temporais de coleta variam conforme o repositório multilateral (OMS: 2010–2022; CO₂ GCP: 2010–2024; Subsídios IEA: 2010–2024; AQUASTAT: 2015–2022; Projeções Aqueduct: 2020, 2030, 2040). As comparações transversais adotam os anos-base mais recentes compatíveis.</li>
           </ul>
         </div>
       </div>
     </div>
     <div class="col-md-6">
-      <div class="card">
-        <div class="card-header text-info"><i class="bi bi-info-circle me-2"></i>Fundamentação da Pesquisa</div>
-        <div class="card-body small">
-          <p>Este painel foi estruturado para investigar a hipótese: <em>"A expansão da infraestrutura tecnológica de data centers e sua respectiva demanda energética/hídrica estão associadas a maiores índices de pressão ambiental nos países?"</em></p>
-          <p><strong>Variáveis de Infraestrutura:</strong> Contagem de instalações e capacidade regional instalada (GW).</p>
-          <p><strong>Variáveis de Pressão Ambiental:</strong> Poluentes atmosféricos (PM2.5, PM10, NO₂), estresse hídrico industrial e emissões de carbono por valor adicionado.</p>
-          <p><strong>Controles Econômicos:</strong> Subsídios a combustíveis fósseis e intensidade de carbono industrial para evitar interpretações simplistas.</p>
+      <div class="card h-100">
+        <div class="card-header text-info fw-semibold"><i class="bi bi-journal-text me-2"></i>Fundamentação Epistemológica e Desenho da Pesquisa</div>
+        <div class="card-body small" style="line-height:1.6">
+          <p class="mb-2">Este sistema de inteligência de dados foi concebido para fornecer base empírica e analítica à investigação da seguinte questão central: <em>"De que maneira a expansão física e eletrointensiva da infraestrutura global de data centers interage com as vulnerabilidades de estresse hídrico, emissões de carbono e poluição atmosférica urbana sob diferentes contextos regulatórios e de subsídios energéticos?"</em></p>
+          <div class="p-2 mb-2 rounded bg-body-secondary border">
+            <strong>Dimensões Analíticas Estruturadas:</strong>
+            <ul class="mb-0 ps-3 mt-1">
+              <li><strong>1. Infraestrutura Digital &amp; Carga Eletrointensiva:</strong> Concentração espacial de data centers ($n = 6.131$), potência regional instalada (GW IEA) e indicadores termodinâmicos de eficiência de resfriamento (PUE).</li>
+              <li><strong>2. Recursos Hídricos &amp; Risco Climático:</strong> Baseline Water Stress (WRI BWS 0–5), projeções de esgotamento industrial (SSP2-4.5, SSP1-2.6, SSP3-8.5) e produtividade econômica da água (FAO ODS 6.4.1 em US$/m³ e ODS 6.4.2).</li>
+              <li><strong>3. Emissões Fósseis &amp; Poluição Atmosférica Urbana:</strong> Emissões brutas de CO₂ (Global Carbon Project em Gt) e concentrações urbanas de material particulado fino e inalável (PM2.5, PM10 e NO₂ da OMS).</li>
+              <li><strong>4. Políticas de Preço de Energia &amp; Eficiência Produtiva:</strong> Subsídios governamentais a combustíveis fósseis (% do PIB e USD/hab da IEA) e intensidade de carbono por valor adicionado bruto industrial (kgCO₂/USD PPP).</li>
+            </ul>
+          </div>
+          <p class="mb-0 text-muted"><strong>Abordagem Metodológica:</strong> O painel adota desenho metodológico misto, combinando análise exploratória espacial (SIG via Leaflet), análise estatística bivariada (Pearson r) e modelagem multicritério de risco (AHP simplificado e escores z normalizados), permitindo cruzamentos dinâmicos sem viés de agregação restrita.</p>
         </div>
       </div>
     </div>
@@ -731,7 +884,7 @@ select[multiple]{min-height:88px;font-size:.83rem}
 </div>
 
 <!-- ═══ CHAT IA ═══ -->
-<div class="tab-pane fade" id="tab-chat">
+<div class="tab-pane fade" id="tab-chat" style="display:none !important;">
   <div class="row justify-content-center">
     <div class="col-lg-8">
       <div class="card">
@@ -953,7 +1106,8 @@ function initAllMaps() {
 
   // Dedicated Pane for DC dots on Main Map (zIndex: 650 to sit above heatmaps and GeoJSON)
   const dcPane = S.map.createPane('dcPane');
-  dcPane.style.zIndex = '650';
+  dcPane.style.zIndex = '600';
+  if (S.map.getPane('tooltipPane')) S.map.getPane('tooltipPane').style.zIndex = '1000';
   dcPane.style.pointerEvents = 'auto';
   S.mainDcRenderer = L.canvas({ padding: 0.5, pane: 'dcPane' }).addTo(S.map);
   S.mainDcGroup = L.layerGroup().addTo(S.map);
@@ -970,7 +1124,8 @@ function initAllMaps() {
     const mini = L.map(m.el, { zoomControl: false, minZoom: 1, attributionControl: false }).setView([20, 10], 1);
     L.tileLayer(tileUrl, { maxZoom: 18 }).addTo(mini);
     const p = mini.createPane('dcPane');
-    p.style.zIndex = '650';
+    p.style.zIndex = '600';
+    if (mini.getPane('tooltipPane')) mini.getPane('tooltipPane').style.zIndex = '1000';
     p.style.pointerEvents = 'auto';
     S.miniDcRenderers[m.id] = L.canvas({ padding: 0.5, pane: 'dcPane' }).addTo(mini);
     S.miniDcGroups[m.id] = L.layerGroup().addTo(mini);
@@ -1004,7 +1159,8 @@ function renderMiniDcDots(miniId, list) {
       fillOpacity: 0.7,
       opacity: 0.9
     });
-    cm.bindTooltip(`<b>${r.Name || 'Data Center'}</b><br>🏢 ${r.Company || 'N/A'}<br>📍 ${r.City || ''}, ${r.Country || ''}`);
+    const loc = [r.City, r.Country].filter(Boolean).join(', ');
+    cm.bindTooltip(`<b>${r.Name || 'Data Center'}</b><br>🏢 ${r.Company || 'N/A'}${loc ? '<br>📍 ' + loc : ''}`);
     grp.addLayer(cm);
   });
 }
@@ -1047,7 +1203,8 @@ function updateMainMapDCs() {
       fillOpacity: 0.75,
       opacity: 0.95
     });
-    cm.bindTooltip(`<b>${r.Name || 'Data Center'}</b><br>🏢 ${r.Company || 'N/A'}<br>📍 ${r.City || ''}, ${r.Country || ''}`, {
+    const loc = [r.City, r.Country].filter(Boolean).join(', ');
+    cm.bindTooltip(`<b>${r.Name || 'Data Center'}</b><br>🏢 ${r.Company || 'N/A'}${loc ? '<br>📍 ' + loc : ''}`, {
       direction: 'top',
       offset: [0, -3]
     });
